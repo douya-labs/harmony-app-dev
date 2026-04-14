@@ -1,6 +1,6 @@
 # app-model
 
-Adapted from: `/home/hailei/workspace/douya-memory/shared/tech/harmonyos-app-model.md`
+Consolidated from prior HarmonyOS app model notes and official documentation directions.
 
 ## Purpose
 

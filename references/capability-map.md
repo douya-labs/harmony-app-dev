@@ -1,6 +1,6 @@
 # capability-map
 
-Adapted from: `/home/hailei/workspace/douya-memory/shared/tech/harmonyos-capability-map.md`
+Consolidated from prior HarmonyOS capability research notes and official documentation categories.
 
 ## Purpose
 

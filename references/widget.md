@@ -1,6 +1,6 @@
 # widget
 
-Adapted from: `/home/hailei/workspace/douya-memory/shared/tech/harmonyos-widget.md`
+Consolidated from prior HarmonyOS Widget research notes and official documentation directions.
 
 ## Purpose
 

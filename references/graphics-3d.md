@@ -1,6 +1,6 @@
 # graphics-3d
 
-Adapted from: `/home/hailei/workspace/douya-memory/shared/tech/arkgraphics-3d.md`
+Consolidated from prior ArkGraphics 3D research notes and official HarmonyOS graphics documentation directions.
 
 ## Purpose
 

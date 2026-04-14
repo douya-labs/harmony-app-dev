@@ -1,6 +1,6 @@
 # api-watch
 
-Adapted from: `/home/hailei/workspace/douya-memory/shared/tech/harmonyos-api-watch.md`
+Consolidated from prior HarmonyOS research notes and official documentation entry points.
 
 ## Purpose
 
