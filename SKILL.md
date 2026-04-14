@@ -36,6 +36,7 @@ If exact property names, method signatures, decorators, or component capabilitie
 2. **Read the smallest relevant references**
    - Always start with `references/capability-map.md`
    - Then read only the domain-specific file you need
+   - If the environment has weak or no search, read `references/example-cookbook.md` early for implementation scaffolds
    - Keep context lean
 
 3. **Verify exact APIs from official docs when needed**
@@ -64,6 +65,8 @@ If exact property names, method signatures, decorators, or component capabilitie
 - `references/widget.md` — Widget / FormExtensionAbility work
 - `references/app-model.md` — app structure, lifecycle, routing, page organization
 - `references/official-search-playbook.md` — exact API lookup workflow and search keywords
+- `references/example-cookbook.md` — practical ArkUI implementation scaffolds for common tasks when search is weak or unavailable
+- `references/official-api-examples.md` — direct official URLs and confirmed notes for high-frequency or API-sensitive cases
 
 ## Output expectations
 
@@ -75,6 +78,7 @@ Prefer outputs that include:
 - official lookup path if exact verification is needed
 - example code or pseudocode when helpful
 - a clear note when the final answer still requires official API confirmation
+- direct official URLs when the task depends on API-sensitive behavior
 
 ## Guardrails
 

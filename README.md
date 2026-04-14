@@ -43,7 +43,9 @@ references/
 ├── graphics-3d.md
 ├── widget.md
 ├── app-model.md
-└── official-search-playbook.md
+├── official-search-playbook.md
+├── example-cookbook.md
+└── official-api-examples.md
 ```
 
 ## Notes
