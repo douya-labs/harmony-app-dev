@@ -12,6 +12,8 @@ This skill helps an AI agent implement HarmonyOS features more reliably by:
 - guiding official API lookup when exact names/signatures matter
 - providing practical fallback strategies for MVP implementation
 
+Official HarmonyOS documentation remains the source of truth for exact APIs, property names, method signatures, decorators, and capability boundaries. This skill is designed to improve navigation and implementation quality, not to replace official references.
+
 ## Best for
 
 - HarmonyOS app development

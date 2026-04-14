@@ -7,6 +7,19 @@ description: Implement HarmonyOS / ArkUI app features with correct capability cl
 
 Use this skill for **HarmonyOS / ArkUI development tasks** where the main risk is choosing the wrong capability, searching the wrong docs, or inventing unsupported APIs.
 
+## Source of truth
+
+For exact HarmonyOS APIs, official documentation is the source of truth.
+This skill provides:
+- capability classification
+- official doc entry points
+- search workflow
+- implementation heuristics
+- fallback strategies for MVP work
+
+This skill does **not** replace official API references.
+If exact property names, method signatures, decorators, or component capabilities matter, verify them from official docs before finalizing the implementation.
+
 ## Workflow
 
 1. **Classify the task first**
@@ -61,6 +74,7 @@ Prefer outputs that include:
 - local references used
 - official lookup path if exact verification is needed
 - example code or pseudocode when helpful
+- a clear note when the final answer still requires official API confirmation
 
 ## Guardrails
 
