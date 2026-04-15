@@ -60,6 +60,7 @@ If exact property names, method signatures, decorators, or component capabilitie
 
 ### Read as needed
 - `references/ui-implementation-rules.md` — ArkUI UI pages, visual effects, animations, gestures, MVP-first implementation behavior
+- `references/visual-effects-recipes.md` — direct implementation recipes for common visual effects such as glassmorphism, glow, spring motion, shared-transition-like effects, wave progress, gesture wall, and 2.5D 3D illusions
 - `references/api-watch.md` — official doc entry points, version sensitivity, and “must verify exact API names” cases
 - `references/graphics-3d.md` — when deciding between ArkGraphics 3D and simpler 2.5D ArkUI transforms
 - `references/widget.md` — Widget / FormExtensionAbility work
@@ -93,3 +94,4 @@ For Harmony visual showcase apps:
 - prioritize homepage + page shell + runnable effect pages first
 - prefer visually convincing ArkUI-native effects over over-engineered abstractions
 - use ArkGraphics 3D only when simpler transforms cannot reasonably achieve the intended effect
+- if the task is to directly build a visual effect, read `references/visual-effects-recipes.md` early instead of staying only at the capability-classification layer

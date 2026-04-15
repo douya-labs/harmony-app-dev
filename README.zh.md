@@ -45,7 +45,8 @@ references/
 ├── app-model.md
 ├── official-search-playbook.md
 ├── example-cookbook.md
-└── official-api-examples.md
+├── official-api-examples.md
+└── visual-effects-recipes.md
 ```
 
 ## 说明
