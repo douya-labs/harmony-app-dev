@@ -64,8 +64,16 @@ references/
 ├── background-tasks.md
 ├── security-and-privacy.md
 ├── debugging.md
-├── testing.md
-└── publishing.md
+├── publishing.md
+├── packaging.md
+├── distributed.md
+├── atomic-service.md
+├── arkts-language.md
+├── resource-management.md
+├── i18n.md
+├── accessibility.md
+├── cross-device.md
+└── ui-design.md
 ```
 
 ## Notes

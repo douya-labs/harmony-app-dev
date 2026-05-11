@@ -80,6 +80,15 @@ If exact property names, method signatures, decorators, or component capabilitie
 - `references/debugging.md` — HiLog discipline, Profiler workflow, ArkUI Inspector, breadcrumbs, async error boundaries
 - `references/testing.md` — unit vs instrumentation; project test layout; injecting fakes; UI smoke patterns
 - `references/publishing.md` — release signing, versioning, AppGallery review, privacy alignment, listing assets
+- `references/packaging.md` — HAP / HAR / HSP packaging strategy, multi-module split, dependency management
+- `references/distributed.md` — cross-device handoff, distributed data object, device discovery, multi-device collaboration
+- `references/atomic-service.md` — atomic service constraints (10MB, install-free), service card entry, distribution paths
+- `references/arkts-language.md` — ArkTS language differences from TypeScript, decorators, type system, common pitfalls
+- `references/resource-management.md` — qualifier-based resources, design tokens via element json, dark mode, multi-DPI
+- `references/i18n.md` — multi-language strings, intl date/number/currency formatting, RTL adaptation
+- `references/accessibility.md` — accessibility text, screen reader, large font, contrast, click region, semantic grouping
+- `references/cross-device.md` — responsive layout (GridRow/mediaquery), foldable adaptation, multi-device feature HAP, deviceType qualifiers
+- `references/ui-design.md` — HarmonyOS Design tokens, spacing/typography/radius scales, button states, elevation, safe spacing
 - `references/api-watch.md` — official doc entry points, version sensitivity, and “must verify exact API names” cases
 - `references/graphics-3d.md` — when deciding between ArkGraphics 3D and simpler 2.5D ArkUI transforms
 - `references/widget.md` — Widget / FormExtensionAbility work

@@ -31,17 +31,17 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### A2. HAP / HAR / HSP packaging
 - triggers: multi-module split, shared library, dynamic feature
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/hap-package-V5
-- local: missing (P2)
+- local: `packaging.md`
 
 #### A3. Resource management
 - triggers: i18n strings, theme resources, qualifier resources
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/resource-categories-and-access-V5
-- local: missing (P2)
+- local: `resource-management.md`
 
 #### A4. ArkTS language
 - triggers: language semantics, type system, decorators
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-overview-V5
-- local: missing (P2)
+- local: `arkts-language.md`
 
 ---
 
@@ -85,7 +85,7 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### B8. UI design / HarmonyOS Design
 - triggers: spec compliance, theme, design tokens
 - official: https://developer.huawei.com/consumer/cn/doc/design-guides/
-- local: missing (P2)
+- local: `ui-design.md`
 
 ---
 
@@ -139,7 +139,7 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### C10. Distributed capability
 - triggers: cross-device sync, hand-off, distributed data
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/inter-device-interaction-overview-V5
-- local: missing (P1)
+- local: `distributed.md`
 
 #### C11. Concurrency
 - triggers: TaskPool, Worker, async heavy work
@@ -163,12 +163,12 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### D2. Atomic service (元服务)
 - triggers: serviceless distribution, scan to use
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/atomicservice-overview-V5
-- local: missing (P2)
+- local: `atomic-service.md`
 
 #### D3. Cross-device (phone / tablet / watch / TV / car)
 - triggers: form-factor adaptation, watch app, tablet layout
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/cross-device-application-overview-V5
-- local: missing (P2)
+- local: `cross-device.md`
 
 ---
 
@@ -192,12 +192,12 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### E4. Internationalization
 - triggers: i18n, l10n, RTL
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/i18n-introduction-V5
-- local: missing (P2)
+- local: `i18n.md`
 
 #### E5. Accessibility
 - triggers: TalkBack-equivalent, large text, semantic labels
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/accessibility-overview-V5
-- local: missing (P2)
+- local: `accessibility.md`
 
 ---
 
