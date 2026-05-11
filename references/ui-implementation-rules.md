@@ -74,3 +74,16 @@ Unless the user explicitly asks, stay native.
 - designing a huge capability platform before a small MVP works
 - creating 10 completely different page architectures with no shared scaffold
 - waiting for perfect API confidence before delivering a reasonable fallback
+
+## Official documentation entry points
+
+- ArkUI overview: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkui-overview-V5
+- Declarative component index: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/arkui-declarative-comp-V5
+- Universal attributes: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-size-V5
+- ArkUI animation overview: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-animation-overview-V5
+- ArkUI gesture overview: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-gesture-events-V5
+
+## Capability mapping
+
+This file maps to coverage matrix row: "UI 开发 (ArkUI 声明式 UI)".
+

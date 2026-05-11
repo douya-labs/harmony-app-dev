@@ -48,3 +48,15 @@ For MVP demo apps:
 - start with 2.5D ArkUI implementation
 - mention ArkGraphics 3D as an upgrade path
 - verify exact API names from official docs before coding Scene / Camera / Light logic
+
+## Official documentation entry points
+
+- ArkGraphics 3D overview: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkgraphics3d-overview-V5
+- Scene API reference: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/js-apis-graphics-scene-V5
+- Component3D usage: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-basic-components-component3d-V5
+- ArkUI transform attributes (preferred for 2.5D): https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-transformation-V5
+
+## Capability mapping
+
+This file maps to coverage matrix row: "ArkGraphics 3D".
+

@@ -37,6 +37,7 @@
 ```text
 SKILL.md
 references/
+├── coverage.md
 ├── capability-map.md
 ├── api-watch.md
 ├── ui-implementation-rules.md
@@ -46,6 +47,7 @@ references/
 ├── official-search-playbook.md
 ├── example-cookbook.md
 ├── official-api-examples.md
+├── component-library-policy.md
 └── visual-effects-recipes.md
 ```
 

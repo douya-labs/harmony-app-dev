@@ -26,6 +26,10 @@ For every component group that appears in the official ArkUI declarative compone
 3. Fill each group with at least minimal reference coverage.
 4. Expand high-priority groups first when product work touches them.
 
+## Capability mapping
+
+This file maps to coverage matrix row: "UI 开发 (ArkUI 声明式 UI) - 组件目录策略".
+
 ## Current blocker
 
 The Huawei docs site currently returns the SPA shell to command-line fetches in this environment, so the exact group list still needs to be extracted via a working browser/session or another reliable fetch path.

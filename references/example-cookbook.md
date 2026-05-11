@@ -1,5 +1,19 @@
 # example-cookbook
 
+## Official documentation entry points
+
+- ArkTS language basics: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-overview-V5
+- ArkUI declarative component index: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/arkui-declarative-comp-V5
+- Universal attributes: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-size-V5
+- @State / @Prop / @Link state management: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-state-V5
+- List / Grid components: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-container-list-V5
+
+## Capability mapping
+
+This file maps to coverage matrix rows: "UI 开发", "ArkUI 状态管理".
+
+---
+
 ## Purpose
 
 Use this file when the execution environment has weak or no search capability and the agent still needs practical HarmonyOS / ArkUI implementation patterns.

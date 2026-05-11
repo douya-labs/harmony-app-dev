@@ -1,5 +1,23 @@
 # visual-effects-recipes
 
+## Official documentation entry points
+
+- Universal attributes (background blur / shadow / opacity / border / transform): https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-image-effect-V5
+- backgroundBlurStyle: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-background-blur-style-V5
+- foregroundBlurStyle: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-foreground-blur-style-V5
+- shadow: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-image-effect-V5#ZH-CN_TOPIC_0000001821000841__shadow
+- linearGradient: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-gradient-color-V5
+- transform attributes: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-universal-attributes-transformation-V5
+- animateTo: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-explicit-animation-V5
+- transition: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-transition-animation-component-V5
+- Canvas / CanvasRenderingContext2D: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-components-canvas-canvas-V5
+
+## Capability mapping
+
+This file maps to coverage matrix rows: "UI 开发", "ArkUI 动画 / 转场 / 手势", "Canvas / 2D 绘制".
+
+---
+
 ## Purpose
 
 Use this file when the task is not just to understand HarmonyOS capabilities, but to **directly implement a visual effect** in ArkUI.

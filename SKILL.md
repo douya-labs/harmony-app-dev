@@ -56,6 +56,7 @@ If exact property names, method signatures, decorators, or component capabilitie
 ## Reference selection
 
 ### Always read first
+- `references/coverage.md` — official-vs-local coverage matrix; the source of truth for what this skill covers
 - `references/capability-map.md` — classify the requirement and identify the official doc category
 
 ### Read as needed
