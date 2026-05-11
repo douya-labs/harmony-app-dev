@@ -65,17 +65,17 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### B4. Animation and transitions
 - triggers: spring motion, page transition, shared element
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-animation-overview-V5
-- local: partial (`ui-implementation-rules.md`, `visual-effects-recipes.md`); split-out file missing (P1)
+- local: `animation-and-gesture.md`, `ui-implementation-rules.md`, `visual-effects-recipes.md`
 
 #### B5. Gesture interaction
 - triggers: tap, drag, pinch, rotate, swipe
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-gesture-events-V5
-- local: partial; split-out file missing (P1)
+- local: `animation-and-gesture.md`
 
 #### B6. Canvas / 2D drawing
 - triggers: procedural drawing, wave, custom chart
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-components-canvas-canvas-V5
-- local: partial in `visual-effects-recipes.md` (P1 to split out)
+- local: `canvas.md`, `visual-effects-recipes.md`
 
 #### B7. ArkGraphics 3D
 - triggers: real 3D scene, Component3D, Scene/Camera/Light
@@ -109,7 +109,7 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### C4. File management
 - triggers: app sandbox files, public directories, file picker
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/app-file-access-V5
-- local: missing (P1)
+- local: `file-management.md`
 
 #### C5. Camera and media
 - triggers: camera, photo capture, image, audio, media library
@@ -124,17 +124,17 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### C7. Background tasks
 - triggers: long task, scheduled task, transient task
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/background-task-overview-V5
-- local: missing (P1)
+- local: `background-tasks.md`
 
 #### C8. Location
 - triggers: GPS, geocoding, geofence
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/location-overview-V5
-- local: missing (P1)
+- local: `location.md`
 
 #### C9. Security and privacy
 - triggers: encryption, Keystore, hashing, secure storage
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/huks-overview-V5
-- local: missing (P1)
+- local: `security-and-privacy.md`
 
 #### C10. Distributed capability
 - triggers: cross-device sync, hand-off, distributed data
@@ -144,7 +144,7 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### C11. Concurrency
 - triggers: TaskPool, Worker, async heavy work
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/taskpool-introduction-V5
-- local: missing (P1)
+- local: `concurrency.md`
 
 #### C12. Multimodal awareness
 - triggers: motion sensing, gesture awareness sensors
@@ -158,7 +158,7 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### D1. Widget / service card
 - triggers: home screen card, FormExtensionAbility
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/service-widget-overview-V5
-- local: `widget.md`
+- local: `widget.md`, `widget-cookbook.md`
 
 #### D2. Atomic service (元服务)
 - triggers: serviceless distribution, scan to use
@@ -177,17 +177,17 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### E1. Debugging
 - triggers: HiLog, Profiler, DevEco Studio diagnostic tools
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/hilog-guidelines-V5
-- local: missing (P1)
+- local: `debugging.md`
 
 #### E2. Testing
 - triggers: unit test, instrumentation test, UI test
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/test-framework-overview-V5
-- local: missing (P1)
+- local: `testing.md`
 
 #### E3. Publishing
 - triggers: signing, version, AppGallery Connect, review
 - official: https://developer.huawei.com/consumer/cn/agconnect/
-- local: missing (P1)
+- local: `publishing.md`
 
 #### E4. Internationalization
 - triggers: i18n, l10n, RTL

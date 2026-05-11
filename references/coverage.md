@@ -51,7 +51,7 @@ Status legend:
 
 | # | Official domain (Guides) | Local file | Status | Priority |
 |---|---|---|---|---|
-| 1 | 应用模型 (Application Model / Stage 模型) | `app-model.md` | 🟡 partial | P1 (upgrade) |
+| 1 | 应用模型 (Application Model / Stage 模型) | `app-model.md` | ✅ covered | maintain |
 | 2 | 应用程序包 (HAP / HAR / HSP) | — | ❌ missing | P2 |
 | 3 | UI 开发 (ArkUI 声明式 UI) | `ui-implementation-rules.md`, `visual-effects-recipes.md`, `example-cookbook.md`, `component-library-policy.md` | ✅ covered | maintain |
 | 4 | UI 设计 (Design / HarmonyOS Design) | — | ❌ missing | P2 |
@@ -59,25 +59,25 @@ Status legend:
 | 6 | 权限管理 (Ability Kit / Permissions) | `permissions.md` | ✅ covered | maintain |
 | 7 | 网络 (Network Kit / @ohos.net.http) | `network.md` | ✅ covered | maintain |
 | 8 | 数据管理 (ArkData: Preferences / RDB / KV) | `persistence.md` | ✅ covered | maintain |
-| 9 | 文件管理 (Core File Kit) | — | ❌ missing | P1 |
+| 9 | 文件管理 (Core File Kit) | `file-management.md` | ✅ covered | maintain |
 | 10 | 媒体 (Camera Kit / Image Kit / Audio / Media Library) | `media-and-camera.md` | ✅ covered | maintain |
 | 11 | 通知 (Notification Kit) | `notification.md` | ✅ covered | maintain |
-| 12 | 后台任务 (Background Tasks Kit) | — | ❌ missing | P1 |
-| 13 | 位置 (Location Kit) | — | ❌ missing | P1 |
-| 14 | 安全 (Universal Keystore / 加密 / 隐私) | — | ❌ missing | P1 |
+| 12 | 后台任务 (Background Tasks Kit) | `background-tasks.md` | ✅ covered | maintain |
+| 13 | 位置 (Location Kit) | `location.md` | ✅ covered | maintain |
+| 14 | 安全 (Universal Keystore / 加密 / 隐私) | `security-and-privacy.md` | ✅ covered | maintain |
 | 15 | 分布式 (Distributed Service Kit / 流转 / 分布式数据) | — | ❌ missing | P1 |
-| 16 | Widget / 服务卡片 (FormExtensionAbility) | `widget.md` | 🟡 partial | P1 (upgrade) |
+| 16 | Widget / 服务卡片 (FormExtensionAbility) | `widget.md`, `widget-cookbook.md` | ✅ covered | maintain |
 | 17 | 元服务 (Atomic Service) | — | ❌ missing | P2 |
 | 18 | ArkTS 语言 (Language) | — | ❌ missing | P2 |
 | 19 | ArkUI 状态管理 (`@State` / `@Prop` / `@Link` / `AppStorage` ...) | `state-management.md` | ✅ covered | maintain |
-| 20 | ArkUI 动画 / 转场 / 手势 | `ui-implementation-rules.md`, `visual-effects-recipes.md` | 🟡 partial | P1 (split) |
-| 21 | Canvas / 2D 绘制 | `visual-effects-recipes.md` | 🟡 partial | P1 |
+| 20 | ArkUI 动画 / 转场 / 手势 | `animation-and-gesture.md`, `ui-implementation-rules.md`, `visual-effects-recipes.md` | ✅ covered | maintain |
+| 21 | Canvas / 2D 绘制 | `canvas.md`, `visual-effects-recipes.md` | ✅ covered | maintain |
 | 22 | ArkGraphics 3D | `graphics-3d.md` | ✅ covered | maintain |
 | 23 | 多媒体感知 (Multimodal Awareness Kit) | `official-api-examples.md` | 🟡 partial | P2 |
-| 24 | 并发 (TaskPool / Worker) | — | ❌ missing | P1 |
-| 25 | 调试与性能 (DevEco Studio / HiLog / Profiler) | — | ❌ missing | P1 |
-| 26 | 测试 (HarmonyOS Test Framework) | — | ❌ missing | P1 |
-| 27 | 上架与发布 (AppGallery Connect) | — | ❌ missing | P1 |
+| 24 | 并发 (TaskPool / Worker) | `concurrency.md` | ✅ covered | maintain |
+| 25 | 调试与性能 (DevEco Studio / HiLog / Profiler) | `debugging.md` | ✅ covered | maintain |
+| 26 | 测试 (HarmonyOS Test Framework) | `testing.md` | ✅ covered | maintain |
+| 27 | 上架与发布 (AppGallery Connect) | `publishing.md` | ✅ covered | maintain |
 | 28 | 国际化 (i18n / l10n) | — | ❌ missing | P2 |
 | 29 | 无障碍 (Accessibility) | — | ❌ missing | P2 |
 | 30 | 跨设备 (手机 / 手表 / 平板 / 车机 / 电视) | — | ❌ missing | P2 |
@@ -97,11 +97,11 @@ These are not direct mirrors of official categories but are part of the skill wo
 ## Current coverage summary (audit baseline)
 
 - official Guides domains in scope: 30
-- domains fully covered (✅): 8 (UI development, ArkGraphics 3D, Permissions, Network, Persistence, Media & Camera, Notification, State Management)
-- domains partially covered (🟡): 4 (App Model, Widget, ArkUI animation/gesture, Canvas)
-- domains missing (❌): 18
-- coverage ratio (full only): ~27%
-- coverage ratio (full + partial): ~40%
+- domains fully covered (✅): 20 (UI, 3D, Permissions, Network, Persistence, Media, Notification, State, App Model, Widget, Canvas, Animation, Location, Concurrency, Security, Background Tasks, File Management, Testing, Debugging, Publishing)
+- domains partially covered (🟡): 1 (Multimodal Awareness)
+- domains missing (❌): 9 (HAP/HAR/HSP, Resource Management, Design, ArkTS Language, Distributed, Atomic Service, Cross-Device, i18n, Accessibility)
+- coverage ratio (full only): ~67%
+- coverage ratio (full + partial): ~70%
 
 ## Priority guidance
 
@@ -120,19 +120,21 @@ Any real HarmonyOS app will block on these. These are the highest-ROI gaps to fi
 ### P1 — common but secondary
 Important for full-featured apps:
 
-- location.md
-- distributed.md
-- concurrency.md
-- security-and-privacy.md
-- background-tasks.md
-- file-management.md
-- testing.md
-- debugging.md
-- publishing.md
-- widget-cookbook.md (upgrade widget.md)
-- app-model.md (upgrade)
-- animation-and-gesture.md (split out from current UI files)
-- canvas.md (split out)
+- ~~location.md~~ ✅ done
+- ~~concurrency.md~~ ✅ done
+- ~~security-and-privacy.md~~ ✅ done
+- ~~background-tasks.md~~ ✅ done
+- ~~file-management.md~~ ✅ done
+- ~~testing.md~~ ✅ done
+- ~~debugging.md~~ ✅ done
+- ~~publishing.md~~ ✅ done
+- ~~widget-cookbook.md~~ ✅ done
+- ~~app-model.md~~ ✅ done (upgraded)
+- ~~animation-and-gesture.md~~ ✅ done
+- ~~canvas.md~~ ✅ done
+- distributed.md (still pending)
+
+**P1 mostly complete. Only distributed.md left in this tier.**
 
 ### P2 — long tail
 Cover when product work touches them:

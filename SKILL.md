@@ -60,14 +60,26 @@ If exact property names, method signatures, decorators, or component capabilitie
 - `references/capability-map.md` — classify the requirement and identify the official doc category
 
 ### Read as needed
+- `references/app-model.md` — Stage model, UIAbility lifecycle, Navigation vs Router, Want, Context, module split
 - `references/ui-implementation-rules.md` — ArkUI UI pages, visual effects, animations, gestures, MVP-first implementation behavior
 - `references/visual-effects-recipes.md` — direct implementation recipes for common visual effects such as glassmorphism, glow, spring motion, shared-transition-like effects, wave progress, gesture wall, and 2.5D 3D illusions
+- `references/animation-and-gesture.md` — explicit/implicit animation, spring motion, page transitions, shared element, gesture conflicts, drag-driven state
+- `references/canvas.md` — procedural 2D drawing, paths, gradients, animated wave, image clipping, RAF discipline
 - `references/state-management.md` — ArkUI state decorators (`@State`/`@Prop`/`@Link`/`@Provide`/`@Observed`/`AppStorage`/`PersistentStorage`); decision tree for scope and direction
 - `references/permissions.md` — declaring, requesting, and handling HarmonyOS permissions; UX flow for sensitive permissions; AppGallery review awareness
 - `references/network.md` — HTTP / upload / download / network state; typed HttpClient pattern; retry and offline strategy
 - `references/persistence.md` — Preferences vs RDB vs Distributed KV; typed repository and schema migration
+- `references/file-management.md` — sandbox layout, atomic write, document picker, cache hygiene
 - `references/media-and-camera.md` — picker / system camera / Camera Kit; image decode / EXIF; audio playback
 - `references/notification.md` — immediate notifications, slot types, scheduled reminders, tap intents (wantAgent)
+- `references/location.md` — single / continuous location, geocoding, accuracy handling, permission UX
+- `references/concurrency.md` — TaskPool vs Worker; thread boundaries; concurrency limiting; cancellation
+- `references/background-tasks.md` — transient vs continuous vs scheduled background work; service extension
+- `references/security-and-privacy.md` — HUKS-managed encryption, secret storage, HTTPS enforcement, masking, privacy alignment
+- `references/widget-cookbook.md` — implementing service cards: provider/renderer split, data update strategies, multi-size, postCardAction
+- `references/debugging.md` — HiLog discipline, Profiler workflow, ArkUI Inspector, breadcrumbs, async error boundaries
+- `references/testing.md` — unit vs instrumentation; project test layout; injecting fakes; UI smoke patterns
+- `references/publishing.md` — release signing, versioning, AppGallery review, privacy alignment, listing assets
 - `references/api-watch.md` — official doc entry points, version sensitivity, and “must verify exact API names” cases
 - `references/graphics-3d.md` — when deciding between ArkGraphics 3D and simpler 2.5D ArkUI transforms
 - `references/widget.md` — Widget / FormExtensionAbility work
