@@ -62,6 +62,12 @@ If exact property names, method signatures, decorators, or component capabilitie
 ### Read as needed
 - `references/ui-implementation-rules.md` — ArkUI UI pages, visual effects, animations, gestures, MVP-first implementation behavior
 - `references/visual-effects-recipes.md` — direct implementation recipes for common visual effects such as glassmorphism, glow, spring motion, shared-transition-like effects, wave progress, gesture wall, and 2.5D 3D illusions
+- `references/state-management.md` — ArkUI state decorators (`@State`/`@Prop`/`@Link`/`@Provide`/`@Observed`/`AppStorage`/`PersistentStorage`); decision tree for scope and direction
+- `references/permissions.md` — declaring, requesting, and handling HarmonyOS permissions; UX flow for sensitive permissions; AppGallery review awareness
+- `references/network.md` — HTTP / upload / download / network state; typed HttpClient pattern; retry and offline strategy
+- `references/persistence.md` — Preferences vs RDB vs Distributed KV; typed repository and schema migration
+- `references/media-and-camera.md` — picker / system camera / Camera Kit; image decode / EXIF; audio playback
+- `references/notification.md` — immediate notifications, slot types, scheduled reminders, tap intents (wantAgent)
 - `references/api-watch.md` — official doc entry points, version sensitivity, and “must verify exact API names” cases
 - `references/graphics-3d.md` — when deciding between ArkGraphics 3D and simpler 2.5D ArkUI transforms
 - `references/widget.md` — Widget / FormExtensionAbility work

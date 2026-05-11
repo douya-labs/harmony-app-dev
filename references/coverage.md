@@ -56,12 +56,12 @@ Status legend:
 | 3 | UI 开发 (ArkUI 声明式 UI) | `ui-implementation-rules.md`, `visual-effects-recipes.md`, `example-cookbook.md`, `component-library-policy.md` | ✅ covered | maintain |
 | 4 | UI 设计 (Design / HarmonyOS Design) | — | ❌ missing | P2 |
 | 5 | 资源管理 (Resource Manager) | — | ❌ missing | P2 |
-| 6 | 权限管理 (Ability Kit / Permissions) | — | ❌ missing | **P0** |
-| 7 | 网络 (Network Kit / @ohos.net.http) | — | ❌ missing | **P0** |
-| 8 | 数据管理 (ArkData: Preferences / RDB / KV) | — | ❌ missing | **P0** |
+| 6 | 权限管理 (Ability Kit / Permissions) | `permissions.md` | ✅ covered | maintain |
+| 7 | 网络 (Network Kit / @ohos.net.http) | `network.md` | ✅ covered | maintain |
+| 8 | 数据管理 (ArkData: Preferences / RDB / KV) | `persistence.md` | ✅ covered | maintain |
 | 9 | 文件管理 (Core File Kit) | — | ❌ missing | P1 |
-| 10 | 媒体 (Camera Kit / Image Kit / Audio / Media Library) | — | ❌ missing | **P0** |
-| 11 | 通知 (Notification Kit) | — | ❌ missing | **P0** |
+| 10 | 媒体 (Camera Kit / Image Kit / Audio / Media Library) | `media-and-camera.md` | ✅ covered | maintain |
+| 11 | 通知 (Notification Kit) | `notification.md` | ✅ covered | maintain |
 | 12 | 后台任务 (Background Tasks Kit) | — | ❌ missing | P1 |
 | 13 | 位置 (Location Kit) | — | ❌ missing | P1 |
 | 14 | 安全 (Universal Keystore / 加密 / 隐私) | — | ❌ missing | P1 |
@@ -69,7 +69,7 @@ Status legend:
 | 16 | Widget / 服务卡片 (FormExtensionAbility) | `widget.md` | 🟡 partial | P1 (upgrade) |
 | 17 | 元服务 (Atomic Service) | — | ❌ missing | P2 |
 | 18 | ArkTS 语言 (Language) | — | ❌ missing | P2 |
-| 19 | ArkUI 状态管理 (`@State` / `@Prop` / `@Link` / `AppStorage` ...) | — | ❌ missing | **P0** |
+| 19 | ArkUI 状态管理 (`@State` / `@Prop` / `@Link` / `AppStorage` ...) | `state-management.md` | ✅ covered | maintain |
 | 20 | ArkUI 动画 / 转场 / 手势 | `ui-implementation-rules.md`, `visual-effects-recipes.md` | 🟡 partial | P1 (split) |
 | 21 | Canvas / 2D 绘制 | `visual-effects-recipes.md` | 🟡 partial | P1 |
 | 22 | ArkGraphics 3D | `graphics-3d.md` | ✅ covered | maintain |
@@ -97,23 +97,25 @@ These are not direct mirrors of official categories but are part of the skill wo
 ## Current coverage summary (audit baseline)
 
 - official Guides domains in scope: 30
-- domains fully covered (✅): 2 (UI development, ArkGraphics 3D)
-- domains partially covered (🟡): 5 (App Model, Widget, ArkUI animation/gesture, Canvas, Multimodal Awareness)
-- domains missing (❌): 23
-- coverage ratio (full only): ~7%
-- coverage ratio (full + partial): ~23%
+- domains fully covered (✅): 8 (UI development, ArkGraphics 3D, Permissions, Network, Persistence, Media & Camera, Notification, State Management)
+- domains partially covered (🟡): 4 (App Model, Widget, ArkUI animation/gesture, Canvas)
+- domains missing (❌): 18
+- coverage ratio (full only): ~27%
+- coverage ratio (full + partial): ~40%
 
 ## Priority guidance
 
 ### P0 — must-have engineering capability files
 Any real HarmonyOS app will block on these. These are the highest-ROI gaps to fill first:
 
-- permissions.md
-- network.md
-- persistence.md (Preferences / RDB / KV)
-- media-and-camera.md
-- notification.md
-- state-management.md
+- ~~permissions.md~~ ✅ done
+- ~~network.md~~ ✅ done
+- ~~persistence.md~~ ✅ done
+- ~~media-and-camera.md~~ ✅ done
+- ~~notification.md~~ ✅ done
+- ~~state-management.md~~ ✅ done
+
+**P0 全部完成。**
 
 ### P1 — common but secondary
 Important for full-featured apps:

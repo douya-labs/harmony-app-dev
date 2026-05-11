@@ -40,15 +40,21 @@ references/
 ├── coverage.md
 ├── capability-map.md
 ├── api-watch.md
+├── official-search-playbook.md
+├── official-api-examples.md
+├── app-model.md
 ├── ui-implementation-rules.md
+├── visual-effects-recipes.md
+├── example-cookbook.md
+├── component-library-policy.md
 ├── graphics-3d.md
 ├── widget.md
-├── app-model.md
-├── official-search-playbook.md
-├── example-cookbook.md
-├── official-api-examples.md
-├── component-library-policy.md
-└── visual-effects-recipes.md
+├── state-management.md
+├── permissions.md
+├── network.md
+├── persistence.md
+├── media-and-camera.md
+└── notification.md
 ```
 
 ## 说明

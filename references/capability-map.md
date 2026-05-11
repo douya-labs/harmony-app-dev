@@ -55,7 +55,7 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### B2. ArkUI state management
 - triggers: `@State`, `@Prop`, `@Link`, `@Provide`, `AppStorage`, `PersistentStorage`
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-state-V5
-- local: missing (P0)
+- local: `state-management.md`
 
 #### B3. Visual effects
 - triggers: blur, shadow, glow, glassmorphism, gradient
@@ -94,17 +94,17 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### C1. Permissions
 - triggers: any sensitive resource access, `module.json5` permissions
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/accesstoken-overview-V5
-- local: missing (**P0**)
+- local: `permissions.md`
 
 #### C2. Network
 - triggers: HTTP, file upload/download, network status
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/js-apis-http-V5
-- local: missing (**P0**)
+- local: `network.md`
 
 #### C3. Persistence (ArkData)
 - triggers: Preferences (KV-like), RDB (SQLite), Distributed KV
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/data-mgmt-overview-V5
-- local: missing (**P0**)
+- local: `persistence.md`
 
 #### C4. File management
 - triggers: app sandbox files, public directories, file picker
@@ -114,12 +114,12 @@ This map mirrors the official HarmonyOS Guides first-level domains and the skill
 #### C5. Camera and media
 - triggers: camera, photo capture, image, audio, media library
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/camera-overview-V5
-- local: missing (**P0**)
+- local: `media-and-camera.md`
 
 #### C6. Notification
 - triggers: instant notification, scheduled reminders, channels
 - official: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/notification-overview-V5
-- local: missing (**P0**)
+- local: `notification.md`
 
 #### C7. Background tasks
 - triggers: long task, scheduled task, transient task
