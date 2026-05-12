@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" width="240" height="64"><g transform="translate(0,0)">
+      <path d="M14 18 L4 32 L14 46" stroke="#FFFFFF" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M50 18 L60 32 L50 46" stroke="#FFFFFF" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M22 22 v20 M22 32 h20 M42 22 v20" stroke="#FFFFFF" stroke-width="5" fill="none" stroke-linecap="round"/>
+    </g><text x="76" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-weight="700" font-size="28" fill="#FFFFFF" letter-spacing="-0.5">ohos<tspan font-weight="400" opacity="0.65">dev</tspan></text></svg>
