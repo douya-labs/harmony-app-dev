@@ -1,0 +1,166 @@
+---
+title: "HarmonyOS NEXT vs Android: What's Different for App Developers"
+description: "HarmonyOS NEXT removed AOSP and Java entirely. This is a developer-focused breakdown of what actually changes — language, runtime, app model, distribution, performance — and what stays familiar."
+pubDate: 2025-04-19
+sidebar:
+  order: 5
+tags: [harmonyos, harmonyos-next, android, migration, comparison]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+For about five years the easy answer to "what's HarmonyOS?" was "it's a fork of Android with Huawei's services on top." That answer is now wrong. **HarmonyOS NEXT** (released 2024) ships without AOSP, without ART, without the Java SDK, and without any direct ability to run Android APKs. It's a clean OS with a new toolchain, a new app model, and a new app language.
+
+If you're an Android developer trying to figure out what porting an app actually involves, this post is the practical breakdown. I'll skip the marketing slides and walk through, area by area, what changes and what's familiar.
+
+## The thirty-second version
+
+| Area | Android | HarmonyOS NEXT |
+|---|---|---|
+| Primary language | Kotlin / Java | ArkTS (TypeScript dialect) |
+| UI framework | Jetpack Compose / Views | ArkUI (declarative) |
+| Runtime | ART (JIT + AOT, JVM-ish) | ArkCompiler (full AOT) |
+| App container | Activity / Fragment / Service | UIAbility / ExtensionAbility |
+| Background | WorkManager / ForegroundService | Continuous task / Agent / Background extension |
+| Distribution | Google Play / OEM stores / sideload | AppGallery only (NEXT) |
+| Build system | Gradle | hvigor (Node-based) |
+| IDE | Android Studio | DevEco Studio (IntelliJ-based) |
+| Cross-process | AIDL / Binder | RPC + custom IPC |
+| Permissions | AndroidManifest + runtime | requestPermissions API + module.json5 |
+| App package | APK / AAB | HAP / HAR / HSP |
+
+Some of those rows look familiar (UIAbility ≈ Activity, ExtensionAbility ≈ Service). Others — distribution, build system, language — are real changes. Let's go through them.
+
+## Language: ArkTS, not Kotlin
+
+This is the biggest day-one shift. ArkTS is HarmonyOS's primary app language, and it's a constrained dialect of TypeScript. Not a JVM language. Not Kotlin. Not Dart. **TypeScript.**
+
+A few practical implications:
+
+- **Your Kotlin instincts mostly transfer.** Strong typing, null safety (via TS), data classes (interfaces here), coroutine-like async (Promises + `async`/`await`), extension-method-style chained DSL for UI. The mental model is closer than you'd think.
+- **Generics are weaker than Kotlin's.** TypeScript-style erasure plus AOT means some generic patterns you'd write in Kotlin (reified types, sealed class hierarchies) need to be refactored to discriminated unions or runtime tags.
+- **No JNI.** If your app depends on a native C/C++ library, HarmonyOS uses **NAPI** instead. The mental model is similar (declare functions in a `.so`, call from your high-level code) but every binding has to be re-written. There is no shim layer.
+- **No Java standard library.** No `java.util.concurrent`, no `Okhttp`, no `Moshi`. The HarmonyOS standard library covers most use cases (`@ohos.net.http`, `@ohos.data.preferences`, `@ohos.taskpool`) but the APIs and idioms are different.
+
+If your codebase is pure Kotlin and uses standard Android Jetpack components, **the translation is mechanical but real work** — count on at least re-writing 100% of the UI layer and a meaningful chunk of the data and platform-integration layers.
+
+## UI: ArkUI vs Compose vs Views
+
+ArkUI is a declarative UI framework. The mental model is closest to Compose.
+
+```typescript
+// ArkUI
+@Component
+struct Greet {
+  @State name: string = 'world';
+  build() {
+    Column() {
+      Text(`Hello, ${this.name}`).fontSize(24)
+      Button('Change').onClick(() => { this.name = 'lay' })
+    }
+  }
+}
+```
+
+```kotlin
+// Compose
+@Composable
+fun Greet() {
+  var name by remember { mutableStateOf("world") }
+  Column {
+    Text("Hello, $name", fontSize = 24.sp)
+    Button(onClick = { name = "lay" }) { Text("Change") }
+  }
+}
+```
+
+The shape is the same: stateful function, declarative children, observable state triggering recomposition. The differences:
+
+- **ArkUI uses decorators (`@State`, `@Prop`, `@Link`, `@Provide`)** instead of Compose's hooks-as-functions pattern. There are about seven decorators total — see the [state management reference](/docs/ui/state-management/).
+- **Modifier order matters in Compose; attribute method order matters in ArkUI.** Same idea, different syntax — chained `.fontSize().padding().backgroundColor()`.
+- **No XML / View system fallback.** ArkUI is the only built-in UI framework. There's no equivalent of "drop down to a `View` for this one screen."
+
+If you're coming from the View system rather than Compose, expect to learn declarative thinking from scratch — the same rewiring Android developers did in 2021–2022.
+
+## App model: UIAbility, not Activity
+
+Where Android has `Activity`, `Fragment`, `Service`, `BroadcastReceiver`, `ContentProvider`, HarmonyOS has a smaller surface:
+
+- **`UIAbility`** — a screen-bearing app entry point. Roughly an Activity, but with no fragment system. Multiple pages within a UIAbility are navigated via `Navigation` / `Router`.
+- **`ExtensionAbility`** — headless functionality with a specific type: `form` (widgets), `service` (long-lived background work), `input_method`, `accessibility`, `static_subscriber`, etc.
+
+There is no Fragment because the page-within-screen abstraction is collapsed into ArkUI's `@Component`. There is no `BroadcastReceiver` for arbitrary system events; instead, a small set of well-known events route to specific extension types.
+
+The implication: **your app's component graph will be flatter and narrower** than the Android equivalent. That's mostly a good thing. Read the [app model reference](/docs/foundation/app-model/) for the full breakdown.
+
+## Background work
+
+Android's WorkManager is the cultural blueprint here, but the HarmonyOS taxonomy is finer:
+
+- **Transient task** — short, one-shot, < ~3 min, kicked off when app is foregrounded.
+- **Continuous task** — long-running with a foreground notification (music playback, GPS tracking).
+- **Agent / scheduled task** — fires at a specific time or interval, system-managed.
+- **Background extension** — your own headless `ExtensionAbility` for ongoing work that shouldn't block UI.
+
+The right one depends on what you're doing. The [background tasks reference](/docs/platform/background-tasks/) has the decision tree. The general philosophy is the same as recent Android: **the system aggressively kills background processes; declare what you need and let the OS schedule it**.
+
+## Distribution: AppGallery only
+
+This is the one that nobody loves talking about but everyone needs to plan for. **HarmonyOS NEXT phones ship without sideload from random sources by default.** Apps are distributed exclusively through Huawei's AppGallery.
+
+What this means in practice:
+
+- **Code signing is mandatory and tied to your AppGallery account.** No self-signed builds for distribution. Internal beta is allowed via AppGallery's beta channel.
+- **Review is human + automated.** Expect 1–3 business days for a normal release. First-time submission is more thorough; subsequent updates are faster.
+- **You can build and install on your own device for development** — `hdc install foo.hap` works fine. You just can't ship that build to anyone outside your AppGallery account.
+- **AdSense / Google ads / Google sign-in won't work.** No GMS at all. Use Huawei's equivalents (AGC ads, AGC auth) or your own backend OAuth.
+
+If your business model depends on Google Play Billing, that's a real porting cost. AppGallery has its own IAP system (HMS IAP) with different revenue terms and APIs.
+
+## Build, IDE, and toolchain
+
+- **DevEco Studio** is the official IDE. It's an IntelliJ fork (so the navigation feels like Android Studio) with HarmonyOS-specific plugins. Stable channel only — there's no beta channel like Android Studio Canary.
+- **hvigor** is the build tool. It's a Node-based DSL that conceptually mirrors Gradle but is *much* slower for large projects today. Cold builds of a medium-sized app take 2–4× as long as a comparable Gradle build.
+- **Module system: HAP / HAR / HSP.** A HAP is a runnable app module (≈ Android `app` module). A HAR is a static library (≈ Android library `aar`). An HSP is a shared dynamic library that can be loaded at runtime by multiple HAPs (no clean Android equivalent — closest is "feature module" via dynamic delivery, but with full code sharing).
+
+<Aside type="caution" title="hvigor performance">
+If you're used to Android Studio's incremental Compose builds, hvigor will feel slow at first. There are ongoing improvements but plan for a slower edit-build-run cycle for now. Investing in good module decomposition (small HAPs that don't trigger whole-app rebuilds) helps a lot.
+</Aside>
+
+## What stays familiar
+
+This shouldn't get lost in the differences:
+
+- **Declarative UI mindset.** Compose habits transfer almost directly.
+- **Async & coroutines.** TS Promises + `async/await` cover most of what Kotlin coroutines did. There's no structured concurrency primitive, though — so you'll handle cancellation more manually.
+- **MVVM / MVI patterns.** Both still apply. State management decorators replace ViewModel + StateFlow; the architecture pattern is the same.
+- **Material Design / human-centered design**. HarmonyOS Design is its own design language but the underlying principles (8-pt grid, type ramp, semantic color tokens, accessibility) are familiar.
+- **REST + JSON + WebSocket.** Same internet, same patterns. Just a different HTTP client API.
+
+## A practical porting decision tree
+
+If you're considering porting an Android app:
+
+1. **Is your business model dependent on Google Play / GMS?** → Plan a serious commercial review before any code work.
+2. **Is your app primarily Compose-based with clean architecture?** → Probably 30–50% of the engineering effort to port the UI, plus your platform integrations.
+3. **Is your app primarily View-based with deep AOSP tie-ins?** → It's a rewrite, basically. Treat the existing code as a spec, not a starting point.
+4. **Does your app depend heavily on a specific Android library (Room, Retrofit, Glide, ExoPlayer)?** → Each of those needs an equivalent — RDB, the HTTP client, Image component, AVPlayer. Not 1:1, but mappable.
+5. **Does your app use NDK / native code?** → All bindings need to be rewritten as NAPI. The C/C++ logic itself usually transfers.
+
+## Closing thoughts
+
+HarmonyOS NEXT is *not* Android. It's not iOS. It's a new platform with its own opinions, and if you treat it like "Android with a different package name" you'll write bad apps. If you embrace the model — declarative UI, AOT compilation, finer background-task taxonomy, capability-based component model — you can build apps that feel native and ship efficiently.
+
+The good news for an Android developer: **the conceptual distance is small**. Strong types, declarative UI, lifecycle-aware components, intent-style routing, foreground-service discipline. Pretty much every habit you've built up in modern Android transfers, even if the syntax doesn't.
+
+The bad news: **the engineering distance is real**. You will rewrite UI, you will rewrite platform integrations, you will fight a slower build system. Budget for it.
+
+If you're starting fresh, just write ArkTS and stop pretending. If you're porting, treat it as a port, not a refactor.
+
+## Related references
+
+- [`docs/foundation/app-model`](/docs/foundation/app-model/) — Stage model, UIAbility, ExtensionAbility
+- [`docs/foundation/arkts-language`](/docs/foundation/arkts-language/) — ArkTS language constraints
+- [`docs/foundation/packaging`](/docs/foundation/packaging/) — HAP / HAR / HSP packaging
+- [`docs/platform/background-tasks`](/docs/platform/background-tasks/) — background work taxonomy
+- [`docs/workflow/publishing`](/docs/workflow/publishing/) — AppGallery publishing flow

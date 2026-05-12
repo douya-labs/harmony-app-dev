@@ -1,0 +1,281 @@
+---
+title: "Building Your First HarmonyOS Widget (Form Card) Step by Step"
+description: "A working 2×2 HarmonyOS service card from scratch — provider/renderer split, postCardAction, multi-size layout, and a step-counter card you can copy and ship."
+pubDate: 2025-04-15
+sidebar:
+  order: 4
+tags: [harmonyos, widget, service-card, form-card, beginner]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+HarmonyOS calls them "service cards" (服务卡片) in marketing, "form cards" in some docs, "widgets" in everyday English. Whatever you call them, the idea is the same as Android App Widgets or iOS WidgetKit: a small, glanceable surface that lives outside your app and can deep-link back into it.
+
+The HarmonyOS implementation is unusual in one important way: **the rendering process and the data process are separate**. Your app process (the *provider*) supplies data; the system's render service (the *renderer*) draws the card. They communicate via a typed message bus. This makes cards battery-friendly but adds one mental layer that surprises newcomers.
+
+This tutorial builds a 2×2 step-counter card end-to-end. By the end you'll have a working card on the home screen and you'll understand the lifecycle well enough to build your own.
+
+## What we're building
+
+A simple card that shows:
+
+- A step count number (the data)
+- A short label
+- A refresh button that updates the count
+- A tap-anywhere action that opens the main app
+
+It's small on purpose. The whole point is to walk every part of the card lifecycle without drowning in product complexity.
+
+## Step 1: declare the form in module.json5
+
+Cards are declared as a `formExtensionAbility` inside your module's `module.json5`. Add this to the `extensionAbilities` array:
+
+```json
+{
+  "name": "StepCounterFormAbility",
+  "srcEntry": "./ets/forms/StepCounterFormAbility.ets",
+  "label": "$string:step_counter_label",
+  "description": "$string:step_counter_desc",
+  "type": "form",
+  "metadata": [
+    {
+      "name": "ohos.extension.form",
+      "resource": "$profile:form_config"
+    }
+  ]
+}
+```
+
+Then create `resources/base/profile/form_config.json` to declare available sizes and the renderer entry:
+
+```json
+{
+  "forms": [
+    {
+      "name": "StepCounter",
+      "displayName": "$string:step_counter_label",
+      "description": "$string:step_counter_desc",
+      "src": "./ets/forms/StepCounterCard.ets",
+      "uiSyntax": "arkts",
+      "window": { "designWidth": 720, "autoDesignWidth": true },
+      "colorMode": "auto",
+      "isDefault": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "10:30",
+      "updateDuration": 2,
+      "defaultDimension": "2*2",
+      "supportDimensions": ["2*2", "2*4", "4*4"],
+      "formConfigAbility": "ability://entry/EntryAbility"
+    }
+  ]
+}
+```
+
+A few notes on the magic strings:
+
+- **`uiSyntax: "arkts"`** opts you into the modern ArkUI-based card renderer. The legacy `"hml"` syntax still works but is being phased out for new cards.
+- **`updateDuration: 2`** means "update every 2 × 30 minutes = every hour." There's a system minimum (currently 30min) so you can't spam.
+- **`supportDimensions`** is the *whitelist* of sizes the user can pick. Don't list sizes you haven't laid out for; the result will look broken at that size.
+- **`formConfigAbility`** is what opens when the user taps "configure card" in the long-press menu.
+
+## Step 2: write the FormExtensionAbility (the provider)
+
+This is the headless side that responds to lifecycle events. It runs in your app process but is a separate ability from your main UIAbility.
+
+```typescript
+// ets/forms/StepCounterFormAbility.ets
+import FormExtensionAbility from '@ohos.app.form.FormExtensionAbility';
+import formBindingData from '@ohos.app.form.formBindingData';
+import formProvider from '@ohos.app.form.formProvider';
+import { Want } from '@ohos.app.ability.Want';
+
+export default class StepCounterFormAbility extends FormExtensionAbility {
+  onAddForm(want: Want) {
+    const data = { 'steps': 0, 'updatedAt': '—' };
+    return formBindingData.createFormBindingData(data);
+  }
+
+  onUpdateForm(formId: string) {
+    const steps = this.readStepsFromStorage();
+    const updated = formProvider.updateForm(formId, formBindingData.createFormBindingData({
+      steps,
+      updatedAt: new Date().toLocaleTimeString(),
+    }));
+    updated.catch(err => console.error('updateForm failed', err));
+  }
+
+  onFormEvent(formId: string, message: string) {
+    // message comes from postCardAction in the renderer
+    const evt = JSON.parse(message);
+    if (evt.action === 'refresh') {
+      this.onUpdateForm(formId);
+    }
+  }
+
+  onRemoveForm(formId: string) {
+    // clean up persisted form id mapping if needed
+  }
+
+  private readStepsFromStorage(): number {
+    // pretend we're reading from a Preferences store or HealthKit
+    return Math.floor(Math.random() * 10000);
+  }
+}
+```
+
+The four lifecycle methods you'll write 90% of the time:
+
+- **`onAddForm`** — fires once when the user adds the card to the home screen. Return the initial render data.
+- **`onUpdateForm`** — fires when the card asks for fresh data, either via the schedule, your push, or a renderer-initiated refresh.
+- **`onFormEvent`** — fires when the renderer sends a message via `postCardAction({ type: 'message', ... })`.
+- **`onRemoveForm`** — fires when the user removes the card. Clean up any persisted state.
+
+<Aside type="caution" title="Don't store mutable state on `this`">
+The form ability process can be killed and restarted at any time. Don't keep counters or caches on the ability instance — persist anything that matters, typically via `Preferences`. The official [persistence reference](/docs/data-io/persistence/) covers the right pattern.
+</Aside>
+
+## Step 3: write the card UI (the renderer)
+
+The renderer is a small ArkUI page. It's *not* a full ArkUI app — there's no navigation, no complex async, and the DSL has a slightly reduced surface. But for normal layouts (text, image, row, column, button) it looks identical.
+
+```typescript
+// ets/forms/StepCounterCard.ets
+import postCardAction from '@ohos.app.form.postCardAction';
+
+@Entry
+@Component
+struct StepCounterCard {
+  @LocalStorageProp('steps') steps: number = 0;
+  @LocalStorageProp('updatedAt') updatedAt: string = '—';
+
+  build() {
+    Column() {
+      Text(`${this.steps}`)
+        .fontSize(40).fontWeight(FontWeight.Bold).fontColor('#3478f6')
+      Text('steps today')
+        .fontSize(14).fontColor('#666').margin({ top: 4 })
+      Text(`updated ${this.updatedAt}`)
+        .fontSize(11).fontColor('#999').margin({ top: 12 })
+
+      Button('Refresh')
+        .fontSize(12).height(28).margin({ top: 12 })
+        .onClick(() => {
+          postCardAction(this, {
+            action: 'message',
+            params: { action: 'refresh' }
+          });
+        })
+    }
+    .width('100%').height('100%')
+    .padding(16)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .onClick(() => {
+      // Tap-anywhere → open the app on the steps page
+      postCardAction(this, {
+        action: 'router',
+        abilityName: 'EntryAbility',
+        params: { route: 'steps' }
+      });
+    });
+  }
+}
+```
+
+The two `postCardAction` types you'll use most:
+
+- **`router`** — open an ability. The `params` object is delivered to your UIAbility's `onCreate` / `onNewWant` as part of the `Want.parameters`.
+- **`message`** — send a message back to the form provider's `onFormEvent`. The `params` are JSON-serialized.
+
+There's also `call`, which invokes a method on a running ability via inter-process call. Useful for "do work in the background app process without launching UI." Out of scope for this tutorial.
+
+## Step 4: handle the deep-link in your UIAbility
+
+When the user taps the card, your `EntryAbility` receives a `Want` with the `route` parameter we set. Either you're cold-launching (handle in `onCreate` / first `onWindowStageCreate`) or you're warm (handle in `onNewWant`).
+
+```typescript
+// ets/entryability/EntryAbility.ts (excerpt)
+onNewWant(want: Want) {
+  const route = want?.parameters?.route as string | undefined;
+  if (route === 'steps') {
+    AppStorage.SetOrCreate('pendingRoute', 'steps');
+  }
+}
+```
+
+Your home page can read `pendingRoute` from `AppStorage` and navigate accordingly. There's no special "handle widget tap" callback — you treat it like any other deep link.
+
+## Multi-size layout: 2×2, 2×4, 4×4
+
+Cards can be added at multiple sizes. The renderer doesn't know its size at build time, but you can read it from `formInfo` injected into `LocalStorage` by the system. The pattern that works:
+
+```typescript
+@LocalStorageProp('formDimension') dim: string = '2*2';
+
+build() {
+  if (this.dim === '4*4') {
+    this.LargeLayout()
+  } else if (this.dim === '2*4') {
+    this.WideLayout()
+  } else {
+    this.SmallLayout()
+  }
+}
+
+@Builder LargeLayout() { /* ... */ }
+@Builder WideLayout() { /* ... */ }
+@Builder SmallLayout() { /* ... */ }
+```
+
+For our step counter, the 2×2 already shown is fine; the 4×4 would add a small 7-day bar chart, the 2×4 would add a horizontal week strip. Same data, different layouts.
+
+## Updating the card from the app side
+
+Sometimes your app has fresher data than the schedule allows — a workout just finished, the user just edited a setting. Push an update from the main app:
+
+```typescript
+import formProvider from '@ohos.app.form.formProvider';
+import formBindingData from '@ohos.app.form.formBindingData';
+
+async function pushUpdate(formId: string, steps: number) {
+  await formProvider.updateForm(formId, formBindingData.createFormBindingData({
+    steps,
+    updatedAt: new Date().toLocaleTimeString(),
+  }));
+}
+```
+
+You need the `formId`. Get it from `onAddForm` and persist it (Preferences or RDB). The system doesn't give you a "list all my live cards" API, so storing the IDs yourself is mandatory.
+
+## Common gotchas
+
+- **No timers or intervals in the renderer.** The renderer process is short-lived and frame-budgeted. Use the schedule + `postCardAction('message')` if you need periodic refresh.
+- **Animations are limited.** `animateTo` works for simple transitions; complex motion may not render smoothly. Cards aren't a place for showy animation.
+- **Dark mode is automatic if you use semantic resources** (`$r('app.color.text_primary')` rather than `'#000'`). Hard-coded colors will look wrong in one theme.
+- **Don't request permissions from a card.** Cards can't show a runtime permission dialog. If you need restricted data (location, health), have the user open the app once to grant the permission, then read from a cached value in the form ability.
+- **`updateForm` is throttled.** Don't call it on every step change; batch updates to ~once per minute at most.
+
+## Deploying and testing
+
+In DevEco Studio, add the card to the simulator's home screen via long-press → "Add card." For real devices, sideload your app, open it once (so the card's form ability is registered), then long-press the home screen and find your card under the app.
+
+Logs from the form ability appear in `hilog` with the tag of your form's class. If your card shows blank, that's almost always one of:
+
+1. `onAddForm` returned `undefined` instead of a binding-data object.
+2. The renderer references a `LocalStorageProp` key the provider never set.
+3. The form profile JSON has a typo in `src` and the renderer file isn't found.
+
+Inspect logs with: `hdc shell hilog -T StepCounterFormAbility`.
+
+## Closing thoughts
+
+The provider/renderer split is conceptually weird at first but pays off — your card stays cheap, the system stays in control, and you get real glanceable widgets without runaway battery cost. Once you internalize the four lifecycle methods and the two `postCardAction` types, you can build a card in an afternoon.
+
+For richer patterns (lock-screen cards, multi-page cards, atomic services that *are* the card), the [widget cookbook reference](/docs/widget/widget-cookbook/) goes much deeper. Start small, ship the 2×2, then iterate.
+
+## Related references
+
+- [`docs/widget/widget`](/docs/widget/widget/) — the widget overview, lifecycle, and renderer rules
+- [`docs/widget/widget-cookbook`](/docs/widget/widget-cookbook/) — provider/renderer recipes, multi-size, refresh strategies
+- [`docs/widget/atomic-service`](/docs/widget/atomic-service/) — when to make the card itself the whole "app"
+- [`docs/data-io/persistence`](/docs/data-io/persistence/) — storing form IDs with Preferences

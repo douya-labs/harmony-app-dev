@@ -1,0 +1,40 @@
+---
+title: 教程
+description: HarmonyOS / OpenHarmony 长文教程，覆盖 ArkTS、ArkUI、动画、Canvas、卡片、Android 迁移等主题。
+sidebar:
+  order: 0
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+这里是长文教程区。每一篇都是一次真实的 walkthrough：所有代码都尽量可编译，所有“坑”都是真有人踩过。
+
+刚接触鸿蒙开发的同学，建议从 **ArkTS 入门：写给 Android 开发者** 那篇开始读。
+
+<CardGrid>
+  <LinkCard
+    title="ArkTS 入门：写给 Android 开发者"
+    href="/zh/tutorials/arkts-for-android-developers/"
+    description="一份 Kotlin/Java 到 ArkTS、装饰器、ArkUI 的实用心智模型迁移指南。"
+  />
+  <LinkCard
+    title="HarmonyOS 动画基础：ArkUI Transition 与 Animator"
+    href="/zh/tutorials/harmonyos-animation-basics/"
+    description="animateTo、transition、Animator —— 在什么场景用哪个。"
+  />
+  <LinkCard
+    title="HarmonyOS Canvas 绘图完整教程"
+    href="/zh/tutorials/harmonyos-canvas-drawing/"
+    description="路径、渐变、图片裁剪，以及一个用 RAF 节奏控制的水波动画。"
+  />
+  <LinkCard
+    title="第一个 HarmonyOS 服务卡片（Widget）实战"
+    href="/zh/tutorials/harmonyos-widget-getting-started/"
+    description="一个从零开始的 2×2 服务卡片，演示 provider/renderer 拆分与 postCardAction。"
+  />
+  <LinkCard
+    title="HarmonyOS NEXT vs Android：到底有哪些差异"
+    href="/zh/tutorials/harmonyos-next-vs-android/"
+    description="没有 AOSP、没有 JVM —— 这对架构、构建和上线意味着什么。"
+  />
+</CardGrid>

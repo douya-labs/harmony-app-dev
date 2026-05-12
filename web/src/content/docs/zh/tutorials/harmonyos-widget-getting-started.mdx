@@ -1,0 +1,281 @@
+---
+title: "第一个 HarmonyOS 服务卡片（Widget）实战"
+description: "从零做一个能跑的 2×2 鸿蒙服务卡片——provider/renderer 拆分、postCardAction、多尺寸布局，附一个可直接抄走的步数卡片。"
+pubDate: 2025-04-15
+sidebar:
+  order: 4
+tags: [harmonyos, widget, service-card, form-card, beginner]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+HarmonyOS 在宣传里叫"服务卡片（服务卡片）"，部分文档里叫"form card"，平时英文圈叫"widget"。叫法随意，思路一样：一个小的、可一眼看到的界面，住在 App 之外，可以深链跳回 App。
+
+鸿蒙的实现有个不一样的关键点：**渲染进程和数据进程是分开的**。你的 App 进程（*provider*）提供数据，系统的渲染服务（*renderer*）负责绘制，二者通过类型化消息总线通信。这让卡片省电，但也多了一层让新手意外的概念。
+
+这篇从头做一个 2×2 步数卡片，走完会有一个能上桌面的真卡片，并且对生命周期了解到能自己造下一个。
+
+## 我们要做什么
+
+一个简单卡片：
+
+- 一个步数数字（数据）
+- 一行短文字
+- 一个刷新按钮，点了拉新数据
+- 整体点击打开 App
+
+故意做小，目的是不被产品复杂度绕晕，把卡片的所有生命周期点都走一遍。
+
+## 步骤 1：在 module.json5 声明
+
+卡片是 `formExtensionAbility`，写在模块的 `module.json5` 的 `extensionAbilities` 数组里：
+
+```json
+{
+  "name": "StepCounterFormAbility",
+  "srcEntry": "./ets/forms/StepCounterFormAbility.ets",
+  "label": "$string:step_counter_label",
+  "description": "$string:step_counter_desc",
+  "type": "form",
+  "metadata": [
+    {
+      "name": "ohos.extension.form",
+      "resource": "$profile:form_config"
+    }
+  ]
+}
+```
+
+然后建 `resources/base/profile/form_config.json` 声明可用尺寸和渲染入口：
+
+```json
+{
+  "forms": [
+    {
+      "name": "StepCounter",
+      "displayName": "$string:step_counter_label",
+      "description": "$string:step_counter_desc",
+      "src": "./ets/forms/StepCounterCard.ets",
+      "uiSyntax": "arkts",
+      "window": { "designWidth": 720, "autoDesignWidth": true },
+      "colorMode": "auto",
+      "isDefault": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "10:30",
+      "updateDuration": 2,
+      "defaultDimension": "2*2",
+      "supportDimensions": ["2*2", "2*4", "4*4"],
+      "formConfigAbility": "ability://entry/EntryAbility"
+    }
+  ]
+}
+```
+
+几个魔法字段：
+
+- **`uiSyntax: "arkts"`** 用新 ArkUI 卡片渲染。老的 `"hml"` 还能用但新卡片不再推荐。
+- **`updateDuration: 2`** 表示"每 2 × 30min = 每小时"刷新一次。系统有最小限制（当前 30 min），刷不快。
+- **`supportDimensions`** 是用户能选的尺寸白名单。别列你没排版过的尺寸，会塌。
+- **`formConfigAbility`** 是用户长按卡片选"配置"时打开的 ability。
+
+## 步骤 2：写 FormExtensionAbility（provider）
+
+这是无 UI 的那一侧，负责响应生命周期。住在你 App 进程里，但是和主 UIAbility 不同的 ability。
+
+```typescript
+// ets/forms/StepCounterFormAbility.ets
+import FormExtensionAbility from '@ohos.app.form.FormExtensionAbility';
+import formBindingData from '@ohos.app.form.formBindingData';
+import formProvider from '@ohos.app.form.formProvider';
+import { Want } from '@ohos.app.ability.Want';
+
+export default class StepCounterFormAbility extends FormExtensionAbility {
+  onAddForm(want: Want) {
+    const data = { 'steps': 0, 'updatedAt': '—' };
+    return formBindingData.createFormBindingData(data);
+  }
+
+  onUpdateForm(formId: string) {
+    const steps = this.readStepsFromStorage();
+    const updated = formProvider.updateForm(formId, formBindingData.createFormBindingData({
+      steps,
+      updatedAt: new Date().toLocaleTimeString(),
+    }));
+    updated.catch(err => console.error('updateForm failed', err));
+  }
+
+  onFormEvent(formId: string, message: string) {
+    // message 来自渲染端的 postCardAction
+    const evt = JSON.parse(message);
+    if (evt.action === 'refresh') {
+      this.onUpdateForm(formId);
+    }
+  }
+
+  onRemoveForm(formId: string) {
+    // 清理你持久化的 formId 映射
+  }
+
+  private readStepsFromStorage(): number {
+    // 假装从 Preferences / 健康服务读
+    return Math.floor(Math.random() * 10000);
+  }
+}
+```
+
+90% 时候你会写的四个生命周期方法：
+
+- **`onAddForm`** —— 用户把卡加到桌面时触发一次。返回初始渲染数据。
+- **`onUpdateForm`** —— 卡片要新数据时触发，可能来自调度、你主动 push、或渲染端发起。
+- **`onFormEvent`** —— 渲染端 `postCardAction({ type: 'message', ... })` 时触发。
+- **`onRemoveForm`** —— 用户移除卡片时触发，清理持久化状态。
+
+<Aside type="caution" title="不要把可变状态放 `this` 上">
+卡片 ability 进程随时可能被杀重启。计数器、缓存别挂在实例上——重要的东西持久化，通常用 `Preferences`。详见 [persistence 文档](/zh/docs/data-io/persistence/)。
+</Aside>
+
+## 步骤 3：写卡片 UI（renderer）
+
+渲染端是一个小 ArkUI 页面。**不是** 完整 ArkUI App——没有导航、没有复杂异步、DSL 表面也略小。但常用布局（text/image/row/column/button）写法和正常组件一致。
+
+```typescript
+// ets/forms/StepCounterCard.ets
+import postCardAction from '@ohos.app.form.postCardAction';
+
+@Entry
+@Component
+struct StepCounterCard {
+  @LocalStorageProp('steps') steps: number = 0;
+  @LocalStorageProp('updatedAt') updatedAt: string = '—';
+
+  build() {
+    Column() {
+      Text(`${this.steps}`)
+        .fontSize(40).fontWeight(FontWeight.Bold).fontColor('#3478f6')
+      Text('steps today')
+        .fontSize(14).fontColor('#666').margin({ top: 4 })
+      Text(`updated ${this.updatedAt}`)
+        .fontSize(11).fontColor('#999').margin({ top: 12 })
+
+      Button('Refresh')
+        .fontSize(12).height(28).margin({ top: 12 })
+        .onClick(() => {
+          postCardAction(this, {
+            action: 'message',
+            params: { action: 'refresh' }
+          });
+        })
+    }
+    .width('100%').height('100%')
+    .padding(16)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .onClick(() => {
+      // 整体点击 → 打开 App 到 steps 页
+      postCardAction(this, {
+        action: 'router',
+        abilityName: 'EntryAbility',
+        params: { route: 'steps' }
+      });
+    });
+  }
+}
+```
+
+最常用的两种 `postCardAction`：
+
+- **`router`** —— 打开一个 ability。`params` 会随 `Want.parameters` 进入 UIAbility 的 `onCreate` / `onNewWant`。
+- **`message`** —— 把消息送回 form provider 的 `onFormEvent`，`params` JSON 序列化。
+
+还有 `call`（IPC 调用某个 ability 的方法），适合"在不开 UI 的情况下让后台跑活"，本篇不展开。
+
+## 步骤 4：在 UIAbility 处理深链
+
+用户点卡片，`EntryAbility` 收到带 `route` 参数的 `Want`。冷启动 → `onCreate` / 第一次 `onWindowStageCreate` 处理；热在 → `onNewWant`。
+
+```typescript
+// ets/entryability/EntryAbility.ts (片段)
+onNewWant(want: Want) {
+  const route = want?.parameters?.route as string | undefined;
+  if (route === 'steps') {
+    AppStorage.SetOrCreate('pendingRoute', 'steps');
+  }
+}
+```
+
+主页读 `pendingRoute` 做导航。没有什么"处理 widget 点击"的特殊回调——它就是普通深链。
+
+## 多尺寸布局：2×2 / 2×4 / 4×4
+
+卡片可以多尺寸。Renderer 编译期不知道自己被加成哪个尺寸，但可以从系统注入 `LocalStorage` 的 `formInfo` 读：
+
+```typescript
+@LocalStorageProp('formDimension') dim: string = '2*2';
+
+build() {
+  if (this.dim === '4*4') {
+    this.LargeLayout()
+  } else if (this.dim === '2*4') {
+    this.WideLayout()
+  } else {
+    this.SmallLayout()
+  }
+}
+
+@Builder LargeLayout() { /* ... */ }
+@Builder WideLayout() { /* ... */ }
+@Builder SmallLayout() { /* ... */ }
+```
+
+我们这卡 2×2 已经够；4×4 可以加个 7 日柱状；2×4 加一行周条。同份数据，不同布局。
+
+## 从 App 主动推更新
+
+调度太慢但你 App 这边有更新（刚结束一组训练、用户改了设置），主动推：
+
+```typescript
+import formProvider from '@ohos.app.form.formProvider';
+import formBindingData from '@ohos.app.form.formBindingData';
+
+async function pushUpdate(formId: string, steps: number) {
+  await formProvider.updateForm(formId, formBindingData.createFormBindingData({
+    steps,
+    updatedAt: new Date().toLocaleTimeString(),
+  }));
+}
+```
+
+`formId` 你得自己存——`onAddForm` 里拿到，存进 Preferences/RDB。系统不给你"列出所有活卡"的 API，必须自己记。
+
+## 常见坑
+
+- **Renderer 里没有 timer / interval。** 渲染进程短命且按帧预算。要周期刷新就走调度 + `postCardAction('message')`。
+- **动画能力有限。** 简单 `animateTo` 行；复杂动效不一定流畅。卡片不是炫动效的地方。
+- **暗色模式自动**——前提是用语义资源（`$r('app.color.text_primary')` 而不是 `'#000'`）。硬编码颜色一边主题会丑。
+- **卡片里别请求权限。** 卡片不能弹运行时权限框。要敏感数据（位置、健康）让用户在 App 里授权一次，卡片读缓存。
+- **`updateForm` 有节流。** 不要每步都调；至多 ~每分钟一次。
+
+## 部署和测试
+
+DevEco Studio 模拟器：长按桌面 → "添加卡片"。真机：sideload 安装后先打开一次 App（让 form ability 注册），再长按桌面找你的卡片。
+
+Form ability 的日志在 `hilog` 里以你 form 类的 tag 输出。卡片白屏，几乎都是：
+
+1. `onAddForm` 返了 `undefined` 而不是 binding-data 对象。
+2. Renderer 用了 provider 没塞过的 `LocalStorageProp` key。
+3. `form_config.json` 里 `src` 路径写错，渲染文件找不到。
+
+看日志：`hdc shell hilog -T StepCounterFormAbility`。
+
+## 收尾
+
+provider/renderer 拆分一开始有点别扭，但回报很值——卡片便宜、系统可控、续航不爆炸。把四个生命周期方法和两种 `postCardAction` 内化，一个下午就能搓一个卡。
+
+更深的玩法（锁屏卡、多页卡、卡即应用的原子化服务），看 [widget cookbook](/zh/docs/widget/widget-cookbook/)。先把 2×2 跑起来，再迭代。
+
+## 相关参考
+
+- [`docs/widget/widget`](/zh/docs/widget/widget/) —— 卡片综述、生命周期、渲染规则
+- [`docs/widget/widget-cookbook`](/zh/docs/widget/widget-cookbook/) —— provider/renderer 模式、多尺寸、刷新策略
+- [`docs/widget/atomic-service`](/zh/docs/widget/atomic-service/) —— 卡即"App"的原子化服务
+- [`docs/data-io/persistence`](/zh/docs/data-io/persistence/) —— 用 Preferences 存 formId

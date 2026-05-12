@@ -1,0 +1,28 @@
+/* Light branding tweaks on top of Starlight defaults */
+:root {
+  --sl-color-accent-low: #173f8e;
+  --sl-color-accent: #3478f6;
+  --sl-color-accent-high: #bcd9ff;
+}
+
+.callout {
+  border-left: 4px solid var(--sl-color-accent);
+  background: var(--sl-color-bg-nav);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+  font-size: 0.95em;
+}
+.callout strong { color: var(--sl-color-accent); }
+
+.adslot {
+  display: block;
+  margin: 1.5rem 0;
+  min-height: 90px;
+  border: 1px dashed var(--sl-color-gray-5);
+  border-radius: 6px;
+  text-align: center;
+  font-size: 0.8em;
+  color: var(--sl-color-gray-3);
+  padding: 0.75rem;
+}

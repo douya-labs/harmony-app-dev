@@ -123,3 +123,10 @@ For Harmony visual showcase apps:
 - prefer visually convincing ArkUI-native effects over over-engineered abstractions
 - use ArkGraphics 3D only when simpler transforms cannot reasonably achieve the intended effect
 - if the task is to directly build a visual effect, read `references/visual-effects-recipes.md` early instead of staying only at the capability-classification layer
+
+## Public web mirror
+
+A public, SEO-friendly version of these references is published at **https://ohosdev.com**.
+The web build lives in `web/` of this repo and is auto-generated from `references/` —
+so for end-user reading, you can link readers to e.g. `https://ohosdev.com/docs/ui/canvas/`
+instead of the raw GitHub markdown.
