@@ -16,7 +16,7 @@ export default defineConfig({
       title: 'ohosdev',
       description:
         'Community-driven HarmonyOS / OpenHarmony developer hub. Tutorials, capability reference, and an open-source AgentSkill.',
-      logo: { src: './src/assets/logo.svg', replacesTitle: false },
+      logo: { src: './src/assets/logo.svg', replacesTitle: true },
       favicon: '/favicon.svg',
       defaultLocale: 'root',
       locales: {
@@ -33,7 +33,7 @@ export default defineConfig({
                 tag: 'script',
                 attrs: {
                   async: true,
-                  src: `https://pagead2.googlesynndication.com/pagead/js/adsbygoogle.js?client=${process.env.PUBLIC_ADSENSE_CLIENT}`,
+                  src: `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.PUBLIC_ADSENSE_CLIENT}`,
                   crossorigin: 'anonymous',
                 },
               },
@@ -42,6 +42,31 @@ export default defineConfig({
         {
           tag: 'meta',
           attrs: { name: 'twitter:card', content: 'summary_large_image' },
+        },
+        {
+          tag: 'meta',
+          attrs: { property: 'og:image', content: `${SITE}/og-image.png` },
+        },
+        {
+          tag: 'meta',
+          attrs: { name: 'twitter:image', content: `${SITE}/og-image.png` },
+        },
+        // Multi-size favicon set (Starlight emits the SVG one; we add raster fallbacks).
+        {
+          tag: 'link',
+          attrs: { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
+        },
+        {
+          tag: 'link',
+          attrs: { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16.png' },
+        },
+        {
+          tag: 'link',
+          attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        },
+        {
+          tag: 'link',
+          attrs: { rel: 'alternate icon', href: '/favicon.ico' },
         },
       ],
       components: {
