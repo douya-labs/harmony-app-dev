@@ -165,8 +165,6 @@ sidebar:
   order: ${meta.order}
 ---
 
-import { Aside } from '@astrojs/starlight/components';
-
 :::caution[Translation pending]
 此页中文版本尚未翻译。下方内容暂以英文显示，欢迎在 GitHub 提交翻译 PR。
 :::
