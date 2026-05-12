@@ -127,6 +127,6 @@ For Harmony visual showcase apps:
 ## Public web mirror
 
 A public, SEO-friendly version of these references is published at **https://ohosdev.com**.
-The web build lives in `web/` of this repo and is auto-generated from `references/` —
-so for end-user reading, you can link readers to e.g. `https://ohosdev.com/docs/ui/canvas/`
+The site is auto-generated from `references/` and lives in a separate repo: [`douya-labs/ohosdev`](https://github.com/douya-labs/ohosdev).
+For end-user reading, you can link readers to e.g. `https://ohosdev.com/docs/ui/canvas/`
 instead of the raw GitHub markdown.

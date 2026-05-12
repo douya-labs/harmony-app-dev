@@ -82,21 +82,13 @@ references/
 - `references/` contains focused domain references loaded as needed
 - The skill is designed to be lightweight and practical, not a full HarmonyOS API encyclopedia
 
-## Public web mirror — `web/`
+## Companion website — ohosdev.com
 
-A public, SEO-friendly developer hub built from the same `references/` content lives in [`web/`](./web). It powers **https://ohosdev.com**.
-
-```bash
-cd web
-npm install
-npm run sync:refs   # regenerate /docs from ../references
-npm run dev         # http://localhost:4321
-npm run build       # produces ./dist (static, Cloudflare-Pages-ready)
-```
-
-See [`web/README.md`](./web/README.md) for stack details, AdSense config, and Cloudflare Pages setup.
+A public, SEO-friendly developer hub built from the same `references/` content lives in [`douya-labs/ohosdev`](https://github.com/douya-labs/ohosdev). It powers **https://ohosdev.com**.
 
 The site has two content layers:
 
 - **`/docs/`** — the 38 reference files in `references/`, auto-synced and rendered as a docs portal (English + Chinese-with-pending-translations).
-- **`/tutorials/`** — long-form tutorials written *on top of* the references, for SEO and readability.
+- **`/tutorials/`**, **`/stories/`**, **`/tips/`**, **`/showcase/`** — long-form content written *on top of* the references, for SEO and readability.
+
+If you edit `references/`, the site picks it up on next build (the ohosdev repo's `npm run sync:refs` pulls from this repo).
