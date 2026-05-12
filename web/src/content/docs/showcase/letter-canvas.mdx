@@ -1,0 +1,321 @@
+---
+title: "Drawing classical Chinese stationery with HarmonyOS Canvas"
+description: "8 paper templates, zero image assets. Pure procedural Canvas — noise, fibers, decoration, all generated at runtime. Code you can paste into DevEco Studio."
+pubDate: 2026-04-16
+sidebar:
+  order: 1
+tags: [showcase, harmonyos, canvas, arkui, graphics]
+image:
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+If you've never made HarmonyOS Canvas do anything fancier than draw a rectangle, this post is for you. We're going to build the actual paper-rendering engine from FloraCarta — a procedural classical Chinese stationery generator — in a way you can copy into a fresh DevEco Studio project.
+
+By the end you'll have:
+
+- A reusable `OffscreenCanvas`-based renderer
+- Paper noise that doesn't look like TV static
+- A registry pattern for adding new templates without `switch` hell
+- A cache that keeps it all 60fps
+
+{/* TODO screenshot: 4 of the 8 templates side by side, with their "decoration" highlighted  */}
+
+## The shape
+
+Each paper template is one config object:
+
+```ts
+interface StationeryTemplate {
+  id: string;
+  displayName: string;
+  backgroundColor: string;     // base paper color
+  borderColor: string;
+  textColor: string;
+  noiseIntensity: number;      // ~3.5 ~ 4.0 — paper grain strength
+  fiberIntensity: number;      // ~1.4 ~ 1.6 — fiber strand strength
+  border: { color: string; outerWidth: number; innerWidth: number; gap: number; margin: number };
+  decorType: string;           // "xuetao" | "su" | "hua" | ...
+}
+```
+
+You can see [all 8 of FloraCarta's templates here](https://github.com/douya-labs/floracarta/blob/main/entry/src/main/resources/rawfile/templates.json). Adding a 9th is one JSON entry + one decoration function.
+
+## Step 1 — The OffscreenCanvas
+
+Don't draw onto a visible Canvas during heavy work. Use `OffscreenCanvas` and copy the result over when done. (Yes ArkTS has `OffscreenCanvas`. Yes it has `OffscreenCanvasRenderingContext2D`. Yes the API is _almost_ the same as web — but `getPixelMap()` is the synchronous form, NOT `toPixelMap`. Day-1 me lost 2 hours to this.)
+
+```ts
+import { drawing } from '@kit.ArkGraphics2D'; // not strictly needed for 2D, but you'll see it around
+
+const W = 1080;
+const H = 1920;
+
+const offscreen: OffscreenCanvas = new OffscreenCanvas(W, H);
+const ctx: OffscreenCanvasRenderingContext2D = offscreen.getContext('2d');
+```
+
+## Step 2 — Base color
+
+```ts
+ctx.fillStyle = template.backgroundColor; // e.g. '#F2D5D0' (xuetao pink)
+ctx.fillRect(0, 0, W, H);
+```
+
+That's the boring part.
+
+## Step 3 — Paper noise (the magic)
+
+This is where most "Canvas paper" tutorials go wrong. They use `Math.random()` for each pixel, get pure RGB jitter, and the result looks like static. Real paper has:
+
+1. **Mostly luminance variation** (brightness, not hue)
+2. **Gaussian-distributed magnitude** (lots of small bumps, few big ones)
+3. **Reproducibility** (same letter should look the same on re-open)
+
+Here's the working version:
+
+```ts
+class PRNG {
+  private state: number;
+  constructor(seed: number) { this.state = (seed & 0x7FFFFFFF) || 1; }
+  next(): number {
+    this.state = (this.state * 1103515245 + 12345) & 0x7FFFFFFF;
+    return this.state / 0x7FFFFFFF;
+  }
+  nextSigned(): number { return this.next() * 2 - 1; }
+  nextGaussian(): number {
+    let s = 0;
+    for (let i = 0; i < 6; i++) s += this.next();
+    return s - 3;
+  }
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function drawPaperNoise(
+  ctx: OffscreenCanvasRenderingContext2D,
+  w: number, h: number,
+  noiseIntensity: number,    // 3.5 ~ 4.0 works well
+  fiberIntensity: number,    // 1.4 ~ 1.6 works well (used in fiber pass)
+  seed: number
+): void {
+  const imageData: ImageData = ctx.getImageData(0, 0, w, h);
+  const data: Uint8ClampedArray = imageData.data;
+  const rng = new PRNG(seed);
+
+  for (let i = 0; i < w * h; i++) {
+    const o = i * 4;
+    const luma = rng.nextGaussian() * noiseIntensity;
+    data[o]     = clamp(data[o]     + luma + rng.nextSigned() * noiseIntensity * 0.15, 0, 255);
+    data[o + 1] = clamp(data[o + 1] + luma + rng.nextSigned() * noiseIntensity * 0.15, 0, 255);
+    data[o + 2] = clamp(data[o + 2] + luma + rng.nextSigned() * noiseIntensity * 0.15, 0, 255);
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+```
+
+Pass `seed = hashCode(template.id)` and the noise pattern is identical every time you regenerate the same template.
+
+<Aside type="caution" title="UI thread alert">
+A 1080×1920 surface is ~2 million pixels. Don't run this on the UI thread. Move it to a `taskpool` worker or expect 500–800ms freezes. (FloraCarta's `taskpool` setup is in [`utils/`](https://github.com/douya-labs/floracarta/tree/main/entry/src/main/ets/utils).)
+</Aside>
+
+## Step 4 — Fibers (optional, very pretty)
+
+Real rice paper has long, thin fibers visible at certain angles. We fake them with sparse 1px strokes at random angles:
+
+```ts
+function drawPaperFibers(
+  ctx: OffscreenCanvasRenderingContext2D,
+  w: number, h: number,
+  fiberIntensity: number,
+  seed: number
+): void {
+  const rng = new PRNG(seed ^ 0xCAFE);
+  const count = Math.floor(w * h * 0.0001 * fiberIntensity);
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < count; i++) {
+    const x = rng.next() * w;
+    const y = rng.next() * h;
+    const angle = rng.next() * Math.PI;
+    const len = 20 + rng.next() * 80;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+```
+
+Tweak `globalAlpha` for "fresh paper" vs "aged paper" feel.
+
+## Step 5 — The decoration registry
+
+Each template has its own little decoration (薛涛笺 has subtle pink swirls; 花笺 has water-ink florals; 竹纸 has bamboo silhouettes). Don't `switch (template.id)`. Use a registry:
+
+```ts
+type DecorFn = (ctx: OffscreenCanvasRenderingContext2D, w: number, h: number, scale: number, seed: number) => void;
+
+const decorRegistry: Map<string, DecorFn> = new Map();
+
+export function registerDecor(id: string, fn: DecorFn): void {
+  decorRegistry.set(id, fn);
+}
+
+// xuetao decoration: pink ink corner swirl
+registerDecor('xuetao', (ctx, w, h, scale, _seed) => {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(196, 135, 122, 0.2)';
+  ctx.lineWidth = 2 * scale;
+  // ...draw a little corner ornament here...
+  ctx.restore();
+});
+
+// su (plain): faint horizontal ruled lines
+registerDecor('su', (ctx, w, h, scale, _seed) => {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(184, 168, 138, 0.15)';
+  ctx.lineWidth = scale;
+  for (let y = 100; y < h - 100; y += 80 * scale) {
+    ctx.beginPath();
+    ctx.moveTo(60, y); ctx.lineTo(w - 60, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+});
+```
+
+Adding 花笺 / 竹纸 / 青笺 / 云母 / 洒金 / 松花 is just more `registerDecor()` calls. Zero `switch` statements; ship-as-many-templates-as-you-want UI.
+
+## Step 6 — The borders (don't skip)
+
+Two parallel rectangles with a small gap is what makes paper feel "framed":
+
+```ts
+function drawBorder(ctx: OffscreenCanvasRenderingContext2D, w: number, h: number, b: TemplateBorderConfig): void {
+  ctx.save();
+  ctx.strokeStyle = b.color;
+
+  // outer
+  ctx.lineWidth = b.outerWidth;
+  ctx.strokeRect(b.margin, b.margin, w - 2 * b.margin, h - 2 * b.margin);
+
+  if (b.innerWidth > 0) {
+    ctx.lineWidth = b.innerWidth;
+    const m = b.margin + b.gap;
+    ctx.strokeRect(m, m, w - 2 * m, h - 2 * m);
+  }
+  ctx.restore();
+}
+```
+
+## Step 7 — Tie it together + cache
+
+```ts
+const bgCache: Map<string, ImageBitmap> = new Map();
+const MAX_CACHE = 16;
+
+export function drawBackgroundSized(
+  ctx: OffscreenCanvasRenderingContext2D,
+  tpl: StationeryTemplate,
+  w: number, h: number
+): void {
+  const key = `${tpl.id}:${w}:${h}`;
+  const cached = bgCache.get(key);
+  if (cached) {
+    ctx.drawImage(cached, 0, 0, w, h);
+    return;
+  }
+
+  const seed = hashSeed(tpl.id);
+  const scale = Math.min(w, h) / 1080;
+
+  // 1. base
+  ctx.fillStyle = tpl.backgroundColor;
+  ctx.fillRect(0, 0, w, h);
+
+  // 2. noise + fibers
+  drawPaperNoise(ctx, w, h, tpl.noiseIntensity, tpl.fiberIntensity, seed);
+  drawPaperFibers(ctx, w, h, tpl.fiberIntensity, seed);
+
+  // 3. decoration
+  const decor = decorRegistry.get(tpl.decorType);
+  if (decor) decor(ctx, w, h, scale, seed);
+
+  // 4. border
+  drawBorder(ctx, w, h, tpl.border);
+
+  // 5. cache
+  const bitmap = ctx.transferToImageBitmap();
+  if (bgCache.size >= MAX_CACHE) {
+    const firstKey = bgCache.keys().next().value as string;
+    bgCache.delete(firstKey);
+  }
+  bgCache.set(key, bitmap);
+  ctx.drawImage(bitmap, 0, 0, w, h);
+}
+
+function hashSeed(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return h;
+}
+```
+
+## Step 8 — Display it
+
+In your ArkUI page:
+
+```ts
+@ComponentV2
+struct PaperPreview {
+  @Local context: OffscreenCanvasRenderingContext2D | null = null;
+
+  build() {
+    Canvas(this.context)
+      .width('100%')
+      .height('100%')
+      .onReady(() => {
+        const off = new OffscreenCanvas(this.canvasWidth, this.canvasHeight);
+        const ctx = off.getContext('2d');
+        drawBackgroundSized(ctx, MY_TEMPLATE, this.canvasWidth, this.canvasHeight);
+        // commit to visible canvas
+        this.context.transferFromImageBitmap(off.transferToImageBitmap());
+      });
+  }
+}
+```
+
+## Performance numbers from FloraCarta
+
+| Render path | Time |
+|---|---|
+| First render of a template (1080×1920, in worker) | ~80ms |
+| Cached re-render (same template, same size) | ~5ms |
+| Thumbnail (180×320, no cache hit) | ~12ms |
+| Switching templates back and forth (cache warm) | feels instant |
+
+That's good enough to never block UI. The `taskpool` worker pattern is essential — see the [stories post](/stories/eight-templates-canvas-vs-png/) for why I shipped it that way.
+
+## What this unlocks
+
+- **Zero image assets.** APK got smaller, dark mode became a JSON edit.
+- **Infinite resolution.** Want a 4K export? Pass 2160×3840. Same code.
+- **User-customizable templates** (V3): expose the JSON, let users tweak `backgroundColor` / `noiseIntensity`. Done.
+
+The full source is [`CanvasHelper.ets` in floracarta](https://github.com/douya-labs/floracarta/blob/main/entry/src/main/ets/utils/CanvasHelper.ets) — 597 lines, including all 8 decoration functions and the cache infrastructure. Steal whatever's useful.
+
+---
+
+**Built with:** HarmonyOS 5.0 / ArkUI Canvas + OffscreenCanvas / `taskpool` / DevEco Studio · [OpenClaw](https://github.com/openclawhq)
+
+I keep [`harmony-app-dev` AgentSkill](https://github.com/douya-labs/harmony-app-dev) loaded so I don't get the Canvas API names confused with web Canvas — they're _almost_ the same but `getPixelMap()` is sync and there's no `toBlob()`. Skill saves me from those slip-ups.
+
+Source: [`floracarta` on GitHub](https://github.com/douya-labs/floracarta).

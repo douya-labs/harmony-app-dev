@@ -1,0 +1,245 @@
+---
+title: "用 HarmonyOS Canvas 画古典中国信笺"
+description: "8 种信笺模板，0 张图片资源。纯程序化 Canvas —— 噪点、纤维、装饰，全是运行时画的。可直接贴进 DevEco Studio 的代码。"
+pubDate: 2026-04-16
+sidebar:
+  order: 1
+tags: [showcase, harmonyos, canvas, arkui, graphics]
+image:
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+如果你的 HarmonyOS Canvas 还没干过比画矩形更花的事，这篇是写给你的。我们要把花笺里那个真实在用的纸张渲染引擎搭一遍 —— 一个程序化的古典中国信笺生成器 —— 用一种你能直接复制到新 DevEco Studio 项目里的方式。
+
+读完你会有：
+
+- 一个可复用的 `OffscreenCanvas` 渲染器
+- 看着不像电视雪花的纸张噪点
+- 加新模板不需要 `switch` 地狱的注册表模式
+- 一个让整个东西跑到 60fps 的缓存
+
+{/* TODO screenshot: 8 个模板挑 4 个并排 + 装饰高亮  */}
+
+## 形状
+
+每个信笺模板就是一个 config 对象：
+
+```ts
+interface StationeryTemplate {
+  id: string;
+  displayName: string;
+  backgroundColor: string;     // 纸张底色
+  borderColor: string;
+  textColor: string;
+  noiseIntensity: number;      // ~3.5 ~ 4.0 —— 纸纹强度
+  fiberIntensity: number;      // ~1.4 ~ 1.6 —— 纤维强度
+  border: { color: string; outerWidth: number; innerWidth: number; gap: number; margin: number };
+  decorType: string;           // "xuetao" | "su" | "hua" | ...
+}
+```
+
+[花笺的 8 种模板都在这](https://github.com/douya-labs/floracarta/blob/main/entry/src/main/resources/rawfile/templates.json)。加第 9 种 = 一条 JSON + 一个装饰函数。
+
+## 第 1 步 —— OffscreenCanvas
+
+干重活时别画在可见 Canvas 上。用 `OffscreenCanvas`，画完再 commit 过去。（ArkTS 有 `OffscreenCanvas`，API 几乎和 web 一样 —— 但同步形式是 `getPixelMap()`，**不是** `toPixelMap`。第一天的我为这个丢了 2 小时。）
+
+```ts
+const W = 1080, H = 1920;
+const offscreen: OffscreenCanvas = new OffscreenCanvas(W, H);
+const ctx: OffscreenCanvasRenderingContext2D = offscreen.getContext('2d');
+```
+
+## 第 2 步 —— 底色
+
+```ts
+ctx.fillStyle = template.backgroundColor; // 比如 '#F2D5D0'（薛涛粉）
+ctx.fillRect(0, 0, W, H);
+```
+
+## 第 3 步 —— 纸张噪点（魔法在这）
+
+大部分"Canvas 画纸"教程在这一步翻车 —— 它们对每个像素 `Math.random()`，得到纯 RGB 抖动，看着像雪花。真纸有：
+
+1. **以亮度变化为主**（brightness，不是 hue）
+2. **高斯分布的幅度**（小颠簸多、大颠簸少）
+3. **可复现**（同一封信再打开应该长一样）
+
+```ts
+class PRNG {
+  private state: number;
+  constructor(seed: number) { this.state = (seed & 0x7FFFFFFF) || 1; }
+  next(): number {
+    this.state = (this.state * 1103515245 + 12345) & 0x7FFFFFFF;
+    return this.state / 0x7FFFFFFF;
+  }
+  nextSigned(): number { return this.next() * 2 - 1; }
+  nextGaussian(): number {
+    let s = 0;
+    for (let i = 0; i < 6; i++) s += this.next();
+    return s - 3;
+  }
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function drawPaperNoise(
+  ctx: OffscreenCanvasRenderingContext2D,
+  w: number, h: number,
+  noiseIntensity: number, seed: number
+): void {
+  const imageData: ImageData = ctx.getImageData(0, 0, w, h);
+  const data: Uint8ClampedArray = imageData.data;
+  const rng = new PRNG(seed);
+  for (let i = 0; i < w * h; i++) {
+    const o = i * 4;
+    const luma = rng.nextGaussian() * noiseIntensity;
+    data[o]     = clamp(data[o]     + luma + rng.nextSigned() * noiseIntensity * 0.15, 0, 255);
+    data[o + 1] = clamp(data[o + 1] + luma + rng.nextSigned() * noiseIntensity * 0.15, 0, 255);
+    data[o + 2] = clamp(data[o + 2] + luma + rng.nextSigned() * noiseIntensity * 0.15, 0, 255);
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+```
+
+`seed = hashCode(template.id)`，同模板每次画都是同一份噪点。
+
+<Aside type="caution" title="UI 线程警报">
+1080×1920 = 200 万像素。别在 UI 线程跑这玩意，500–800ms 卡顿等着你。扔 `taskpool` worker 里。
+</Aside>
+
+## 第 4 步 —— 纤维（可选）
+
+真宣纸有长长的细纤维。用稀疏的 1px 随机短线模拟：
+
+```ts
+function drawPaperFibers(ctx, w, h, fiberIntensity, seed) {
+  const rng = new PRNG(seed ^ 0xCAFE);
+  const count = Math.floor(w * h * 0.0001 * fiberIntensity);
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < count; i++) {
+    const x = rng.next() * w, y = rng.next() * h;
+    const angle = rng.next() * Math.PI;
+    const len = 20 + rng.next() * 80;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+```
+
+## 第 5 步 —— 装饰注册表
+
+每个模板有自己的装饰（薛涛笺有粉墨涡纹，花笺有水墨花，竹纸有竹影）。别 `switch (template.id)`，用注册表：
+
+```ts
+type DecorFn = (ctx: OffscreenCanvasRenderingContext2D, w: number, h: number, scale: number, seed: number) => void;
+
+const decorRegistry: Map<string, DecorFn> = new Map();
+export function registerDecor(id: string, fn: DecorFn): void {
+  decorRegistry.set(id, fn);
+}
+
+registerDecor('xuetao', (ctx, w, h, scale, _seed) => {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(196, 135, 122, 0.2)';
+  ctx.lineWidth = 2 * scale;
+  // ... 画一个角落小装饰 ...
+  ctx.restore();
+});
+
+registerDecor('su', (ctx, w, h, scale, _seed) => {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(184, 168, 138, 0.15)';
+  ctx.lineWidth = scale;
+  for (let y = 100; y < h - 100; y += 80 * scale) {
+    ctx.beginPath();
+    ctx.moveTo(60, y); ctx.lineTo(w - 60, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+});
+```
+
+加 花笺 / 竹纸 / 青笺 / 云母 / 洒金 / 松花 都是再 `registerDecor()` 一次。零 `switch`，UI 上随便加多少模板。
+
+## 第 6 步 —— 边框（别省）
+
+两条平行矩形带个小 gap，纸张感的关键：
+
+```ts
+function drawBorder(ctx, w, h, b) {
+  ctx.save();
+  ctx.strokeStyle = b.color;
+  ctx.lineWidth = b.outerWidth;
+  ctx.strokeRect(b.margin, b.margin, w - 2 * b.margin, h - 2 * b.margin);
+  if (b.innerWidth > 0) {
+    ctx.lineWidth = b.innerWidth;
+    const m = b.margin + b.gap;
+    ctx.strokeRect(m, m, w - 2 * m, h - 2 * m);
+  }
+  ctx.restore();
+}
+```
+
+## 第 7 步 —— 串起来 + 缓存
+
+```ts
+const bgCache: Map<string, ImageBitmap> = new Map();
+const MAX_CACHE = 16;
+
+export function drawBackgroundSized(ctx, tpl, w, h) {
+  const key = `${tpl.id}:${w}:${h}`;
+  const cached = bgCache.get(key);
+  if (cached) { ctx.drawImage(cached, 0, 0, w, h); return; }
+
+  const seed = hashSeed(tpl.id);
+  const scale = Math.min(w, h) / 1080;
+
+  ctx.fillStyle = tpl.backgroundColor;
+  ctx.fillRect(0, 0, w, h);
+  drawPaperNoise(ctx, w, h, tpl.noiseIntensity, seed);
+  drawPaperFibers(ctx, w, h, tpl.fiberIntensity, seed);
+  const decor = decorRegistry.get(tpl.decorType);
+  if (decor) decor(ctx, w, h, scale, seed);
+  drawBorder(ctx, w, h, tpl.border);
+
+  const bitmap = ctx.transferToImageBitmap();
+  if (bgCache.size >= MAX_CACHE) bgCache.delete(bgCache.keys().next().value as string);
+  bgCache.set(key, bitmap);
+  ctx.drawImage(bitmap, 0, 0, w, h);
+}
+```
+
+## 花笺里的实测数字
+
+| 路径 | 时间 |
+|---|---|
+| 首次渲染（1080×1920，worker 里） | ~80ms |
+| 缓存命中（同模板同尺寸） | **~5ms** |
+| 缩略图（180×320，未命中） | ~12ms |
+| 来回切模板（缓存热） | 秒开 |
+
+完整源码在 [`CanvasHelper.ets`](https://github.com/douya-labs/floracarta/blob/main/entry/src/main/ets/utils/CanvasHelper.ets) —— 597 行，含 8 个装饰函数和缓存基础设施。要啥拿啥。
+
+## 这解锁了啥
+
+- **零图片资源** —— APK 变小，深色模式 = 改个 JSON。
+- **无限分辨率** —— 想要 4K 导出？传 2160×3840，同一段代码。
+- **用户自定义模板**（V3）—— 把 JSON 暴露出来让用户调 `backgroundColor` / `noiseIntensity`。完事。
+
+---
+
+**Built with:** HarmonyOS 5.0 / ArkUI Canvas + OffscreenCanvas / `taskpool` / DevEco Studio · [OpenClaw](https://github.com/openclawhq)
+
+我挂着 [`harmony-app-dev` AgentSkill](https://github.com/douya-labs/harmony-app-dev) 来防止 Canvas API 名字和 web Canvas 搞混 —— 它们 _几乎_ 一样，但 `getPixelMap()` 是同步的，没有 `toBlob()`。Skill 帮我躲掉这种小坑。
+
+源码：[`floracarta` on GitHub](https://github.com/douya-labs/floracarta)。
