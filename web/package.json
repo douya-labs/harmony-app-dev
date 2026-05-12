@@ -1,0 +1,25 @@
+{
+  "name": "ohosdev-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && pagefind --site dist",
+    "preview": "astro preview",
+    "astro": "astro",
+    "sync:refs": "node ../scripts/sync-references.mjs"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^4.2.0",
+    "@astrojs/rss": "^4.0.10",
+    "@astrojs/sitemap": "^3.2.1",
+    "@astrojs/starlight": "^0.32.0",
+    "@astrojs/starlight-tailwind": "^3.0.0",
+    "@astrojs/tailwind": "^5.1.4",
+    "astro": "^5.2.0",
+    "pagefind": "^1.3.0",
+    "sharp": "^0.33.5",
+    "tailwindcss": "^3.4.17"
+  }
+}

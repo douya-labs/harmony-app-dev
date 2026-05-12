@@ -1,0 +1,47 @@
+---
+import Default from '@astrojs/starlight/components/Head.astro';
+
+const { entry } = Astro.locals.starlightRoute ?? {};
+const url = Astro.url;
+const path = url.pathname.replace(/\/$/, '') || '/';
+
+// Compute hreflang alternates: strip /zh/ prefix → english root; add /zh/ for chinese.
+const isZh = path.startsWith('/zh');
+const baseEn = isZh ? path.replace(/^\/zh/, '') || '/' : path;
+const baseZh = '/zh' + (baseEn === '/' ? '' : baseEn);
+
+const enUrl = new URL(baseEn, Astro.site).toString();
+const zhUrl = new URL(baseZh, Astro.site).toString();
+
+// JSON-LD: Article for tutorials/docs, otherwise WebSite
+const isArticle = entry && (entry.id?.startsWith('tutorials/') || entry.id?.startsWith('docs/'));
+const articleLd = isArticle && entry
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: entry.data.title,
+      description: entry.data.description,
+      url: url.toString(),
+      inLanguage: isZh ? 'zh-CN' : 'en',
+      author: { '@type': 'Organization', name: 'ohosdev' },
+      publisher: { '@type': 'Organization', name: 'ohosdev' },
+    }
+  : null;
+
+const breadcrumbLd = isArticle && entry
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: new URL(isZh ? '/zh/' : '/', Astro.site).toString() },
+        { '@type': 'ListItem', position: 2, name: entry.data.title, item: url.toString() },
+      ],
+    }
+  : null;
+---
+<Default><slot /></Default>
+<link rel="alternate" hreflang="en" href={enUrl} />
+<link rel="alternate" hreflang="zh-CN" href={zhUrl} />
+<link rel="alternate" hreflang="x-default" href={enUrl} />
+{articleLd && <script type="application/ld+json" set:html={JSON.stringify(articleLd)} />}
+{breadcrumbLd && <script type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)} />}
