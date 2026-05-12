@@ -23,9 +23,7 @@ export default defineConfig({
         root: { label: 'English', lang: 'en' },
         zh: { label: '简体中文', lang: 'zh-CN' },
       },
-      social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/douya-labs/harmony-app-dev' },
-      ],
+      social: { github: 'https://github.com/douya-labs/harmony-app-dev' },
       customCss: ['./src/styles/tailwind.css', './src/styles/custom.css'],
       head: [
         // AdSense script slot — only injected when PUBLIC_ADSENSE_CLIENT is set.
