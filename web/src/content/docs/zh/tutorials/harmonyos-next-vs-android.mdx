@@ -1,0 +1,166 @@
+---
+title: "HarmonyOS NEXT vs Android：到底有哪些差异（开发者视角）"
+description: "HarmonyOS NEXT 砍掉了 AOSP 与 Java。这篇从开发者视角拆解到底哪些变了——语言、运行时、应用模型、分发、性能——以及哪些其实还熟悉。"
+pubDate: 2025-04-19
+sidebar:
+  order: 5
+tags: [harmonyos, harmonyos-next, android, migration, comparison]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+过去五年，"什么是 HarmonyOS"的最简答案一直是"带华为服务的 Android 分支"。这答案现在错了。**HarmonyOS NEXT**（2024 年发）不再带 AOSP、不再带 ART、不再带 Java SDK，也不再能直接跑 Android APK。这是一台干净的新 OS，新工具链、新应用模型、新应用语言。
+
+如果你是 Android 开发者，想搞清楚把一个 App 移植过来到底是什么工程量，这篇是面向工程的拆解。跳过 PPT，按区域过一遍：哪些变了、哪些还能用。
+
+## 三十秒速览
+
+| 区域 | Android | HarmonyOS NEXT |
+|---|---|---|
+| 主语言 | Kotlin / Java | ArkTS（TypeScript 方言） |
+| UI 框架 | Jetpack Compose / View | ArkUI（声明式） |
+| 运行时 | ART（JIT + AOT，类 JVM） | ArkCompiler（全 AOT） |
+| 应用容器 | Activity / Fragment / Service | UIAbility / ExtensionAbility |
+| 后台 | WorkManager / ForegroundService | 长时任务 / 代理任务 / Background extension |
+| 分发 | Google Play / 各厂商 / sideload | 仅 AppGallery |
+| 构建系统 | Gradle | hvigor（Node-based） |
+| IDE | Android Studio | DevEco Studio（IntelliJ-based） |
+| 跨进程 | AIDL / Binder | RPC + 自定义 IPC |
+| 权限 | AndroidManifest + 运行时 | requestPermissions API + module.json5 |
+| 应用包 | APK / AAB | HAP / HAR / HSP |
+
+有些行看着熟（UIAbility ≈ Activity，ExtensionAbility ≈ Service）；另一些——分发、构建、语言——是真的换了。挨个看。
+
+## 语言：ArkTS，不是 Kotlin
+
+Day-1 最大的转折。ArkTS 是 HarmonyOS 主力语言，是 **TypeScript 的受限方言**。不是 JVM 系语言，不是 Kotlin，不是 Dart，是 **TypeScript**。
+
+工程层面的影响：
+
+- **Kotlin 直觉大体能转。** 强类型、null 安全（TS 里）、data class（这里是 interface）、协程式异步（Promise + `async`/`await`）、链式 DSL 写 UI——心智模型比想象近。
+- **泛型比 Kotlin 弱。** TypeScript 风格的擦除 + AOT，让 Kotlin 里的某些泛型模式（reified、sealed class 层级）需要重构成 discriminated union 或者 runtime tag。
+- **没有 JNI。** 依赖原生 C/C++ 库的话，HarmonyOS 用 **NAPI**。心智模型类似（声明 `.so` 函数、上层调用），但每个 binding 都要重写。没有 shim 层。
+- **没有 Java 标准库。** 没 `java.util.concurrent`、没 OkHttp、没 Moshi。HarmonyOS 标准库覆盖大多数场景（`@ohos.net.http`、`@ohos.data.preferences`、`@ohos.taskpool`），但 API 和习惯都不一样。
+
+如果你的工程是纯 Kotlin、用标准 Jetpack 组件，**翻译是机械但实在的工作量**——UI 层 100% 重写，数据层和平台集成层也得改一大块。
+
+## UI：ArkUI vs Compose vs View
+
+ArkUI 是声明式 UI 框架，心智模型最接近 Compose。
+
+```typescript
+// ArkUI
+@Component
+struct Greet {
+  @State name: string = 'world';
+  build() {
+    Column() {
+      Text(`Hello, ${this.name}`).fontSize(24)
+      Button('Change').onClick(() => { this.name = 'lay' })
+    }
+  }
+}
+```
+
+```kotlin
+// Compose
+@Composable
+fun Greet() {
+  var name by remember { mutableStateOf("world") }
+  Column {
+    Text("Hello, $name", fontSize = 24.sp)
+    Button(onClick = { name = "lay" }) { Text("Change") }
+  }
+}
+```
+
+形状一样：有状态函数、声明式子树、可观察状态触发重组。差异：
+
+- **ArkUI 用装饰器（`@State`、`@Prop`、`@Link`、`@Provide`）** 而不是 Compose 的 hook-as-function。一共约七个，详见 [state management 文档](/zh/docs/ui/state-management/)。
+- **Compose 看 modifier 顺序，ArkUI 看属性方法顺序。** 同一思想，不同语法——`.fontSize().padding().backgroundColor()`。
+- **没有 XML / View 兜底。** ArkUI 是唯一内置 UI 框架，"这一屏掉到 View 系统去写"是没有的。
+
+如果是 View 系统过来（不是 Compose），就当从 0 学声明式——和 2021–2022 那波 Android 开发者要补的课一样。
+
+## 应用模型：UIAbility，不是 Activity
+
+Android 有 `Activity`、`Fragment`、`Service`、`BroadcastReceiver`、`ContentProvider`。HarmonyOS 的表面更小：
+
+- **`UIAbility`** —— 有 UI 的应用入口，粗略对应 Activity，但没有 fragment 系统；UIAbility 内部多页用 `Navigation`/`Router` 走。
+- **`ExtensionAbility`** —— 无 UI 的指定类型功能：`form`（卡片）、`service`（长后台）、`input_method`、`accessibility`、`static_subscriber` 等。
+
+没有 Fragment——页内拆分用 ArkUI 的 `@Component`。没有任意 `BroadcastReceiver`——少量众所周知的系统事件路由到对应 extension 类型。
+
+意思是 **你的组件图会比 Android 等价物更扁更窄**。多数情况下这是好事。详见 [app model 文档](/zh/docs/foundation/app-model/)。
+
+## 后台
+
+Android 的 WorkManager 是文化蓝本，但 HarmonyOS 分类更细：
+
+- **临时任务**——短、一次、< ~3 分钟，前台时发起。
+- **长时任务**——前台通知打底（音乐、GPS）。
+- **代理 / 定时任务**——指定时间或间隔触发，系统统一管理。
+- **Background extension**——你自己的无 UI `ExtensionAbility`，跑不应阻塞 UI 的工作。
+
+选哪个看你做什么，决策树在 [background tasks 文档](/zh/docs/platform/background-tasks/) 里。整体哲学和现代 Android 一致：**系统会激进杀后台，明确声明你要什么、让系统调度**。
+
+## 分发：只有 AppGallery
+
+这个没人爱聊但都得规划。**HarmonyOS NEXT 手机默认不开放第三方源 sideload。** 应用只能通过 AppGallery 分发。
+
+工程影响：
+
+- **代码签名强制并绑定 AppGallery 账号。** 想自签发布？没的事。内部 beta 走 AppGallery 的 beta 渠道。
+- **审核是人 + 自动的。** 普通发版 1–3 工作日。首次提交更严，后续更新更快。
+- **本机开发安装当然可以**——`hdc install foo.hap` 没问题。只是这个包不能给账号外的人。
+- **AdSense / Google 广告 / Google 登录全部不可用。** 完全没有 GMS。要用华为对应物（AGC ads、AGC auth）或者自家 OAuth。
+
+如果你的商业模式靠 Google Play Billing，移植成本是真实的。AppGallery 有 HMS IAP，分成条款和 API 都不一样。
+
+## 构建、IDE、工具链
+
+- **DevEco Studio** 是官方 IDE，IntelliJ fork（导航手感像 AS），鸿蒙专用插件。只有稳定通道，没有 Canary 之类的早期通道。
+- **hvigor** 是构建工具，Node-based DSL，概念上对标 Gradle，但目前对大型工程 *慢得多*。中等规模 App 的冷构建大约是同等 Gradle 项目的 2–4 倍。
+- **模块系统 HAP / HAR / HSP。** HAP 是可运行 App 模块（≈ Android `app` module）；HAR 是静态库（≈ `aar`）；HSP 是动态共享库，运行时被多个 HAP 加载（Android 没干净对应物，最接近的是 dynamic delivery 的 feature module，但代码可全量共享）。
+
+<Aside type="caution" title="hvigor 性能">
+习惯了 Compose 增量构建，hvigor 一开始会觉得慢。在持续优化，但目前要做心理准备。投资好的模块拆分（小 HAP，避免触发整 App 重建）很有帮助。
+</Aside>
+
+## 还熟悉的部分
+
+别让差异盖住共性：
+
+- **声明式 UI 思维。** Compose 习惯几乎直接迁。
+- **异步 & 协程。** TS Promise + `async/await` 覆盖大部分 Kotlin 协程的常用法。但**没有结构化并发原语**——取消管理要更手工。
+- **MVVM / MVI。** 都还适用。状态装饰器替代 ViewModel + StateFlow，架构模式不变。
+- **Material / 人因设计。** HarmonyOS Design 是自己一套，但底层原则（8pt 网格、字体阶、语义颜色 token、可访问性）都熟。
+- **REST + JSON + WebSocket。** 同一个互联网，同一套模式。HTTP 客户端 API 不同而已。
+
+## 一个实用的移植决策树
+
+考虑要不要移植 Android App：
+
+1. **商业模式依赖 Google Play / GMS？** → 写代码前先认真做商业评估。
+2. **App 主要是 Compose + 干净架构？** → UI 层大约 30–50% 工作量，再加平台集成。
+3. **App 主要是 View + 深度 AOSP 绑定？** → 基本是重写，把现有代码当规格书别当起点。
+4. **重度依赖某个 Android 库（Room / Retrofit / Glide / ExoPlayer）？** → 各有对应（RDB / HTTP 客户端 / Image / AVPlayer）。不是 1:1，但能映射。
+5. **用了 NDK / 原生代码？** → 所有 binding 重写为 NAPI，C/C++ 业务代码本身一般可迁。
+
+## 收尾
+
+HarmonyOS NEXT 不是 Android、不是 iOS。是一台有自己主张的新平台。把它当 "Android 换包名" 来开发只会得到难用的 App。拥抱它的模型——声明式 UI、AOT 编译、更细的后台任务分类、能力化的组件模型——你能写出体验好、跑得稳的 App。
+
+对 Android 开发者好消息：**心智距离不大**。强类型、声明式 UI、生命周期感知组件、Intent 风格路由、前台服务纪律——你这些年攒下的几乎全部直觉都能迁，只是语法不同。
+
+坏消息：**工程距离是真的**。UI 重写、平台集成重写、与一个慢一些的构建系统打架。预算上要算进去。
+
+新项目就直接写 ArkTS，别假装；老项目就当一次移植，别当 refactor。
+
+## 相关参考
+
+- [`docs/foundation/app-model`](/zh/docs/foundation/app-model/) —— Stage 模型、UIAbility、ExtensionAbility
+- [`docs/foundation/arkts-language`](/zh/docs/foundation/arkts-language/) —— ArkTS 语言约束
+- [`docs/foundation/packaging`](/zh/docs/foundation/packaging/) —— HAP / HAR / HSP 打包
+- [`docs/platform/background-tasks`](/zh/docs/platform/background-tasks/) —— 后台任务分类
+- [`docs/workflow/publishing`](/zh/docs/workflow/publishing/) —— AppGallery 发布流程

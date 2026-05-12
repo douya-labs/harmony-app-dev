@@ -1,0 +1,293 @@
+---
+title: "Canvas Drawing in HarmonyOS: A Complete Tutorial with Examples"
+description: "Procedural 2D drawing in HarmonyOS using the ArkUI Canvas component and CanvasRenderingContext2D — paths, gradients, image clipping, and an animated wave with proper RAF discipline."
+pubDate: 2025-04-12
+sidebar:
+  order: 3
+tags: [harmonyos, canvas, 2d-drawing, arkui]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+If you've ever drawn anything in HTML5 Canvas, you already know 90% of the HarmonyOS Canvas API. The component is `Canvas`, the rendering context is `CanvasRenderingContext2D`, and the methods are nearly identical: `fillRect`, `beginPath`, `moveTo`, `lineTo`, `arc`, `fillText`, `drawImage`. If anything, it feels nostalgic.
+
+But there *are* HarmonyOS-specific things — coordinate units, frame loops, image loading semantics, and a couple of platform behaviors that will silently produce a blank canvas if you do them in the wrong order. This tutorial walks through it end-to-end and ends with a small animated wave you can ship.
+
+## Setting up the canvas
+
+A minimum drawable canvas needs three things: a `RenderingContextSettings`, a `CanvasRenderingContext2D`, and a `Canvas` component bound to that context.
+
+```typescript
+@Entry @Component
+struct HelloCanvas {
+  private settings: RenderingContextSettings = new RenderingContextSettings(true);
+  private ctx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
+
+  build() {
+    Column() {
+      Canvas(this.ctx)
+        .width(320).height(240)
+        .backgroundColor('#f5f5f7')
+        .onReady(() => {
+          this.ctx.fillStyle = '#3478f6';
+          this.ctx.fillRect(20, 20, 100, 60);
+        });
+    }
+    .padding(24);
+  }
+}
+```
+
+The bit nobody warns you about: **never draw outside `onReady`** on first paint. The context isn't ready until the framework calls back; if you try to draw in `aboutToAppear` you'll get nothing. After the first `onReady`, you can draw whenever you want — from event handlers, from a frame loop, from async callbacks.
+
+The `true` argument to `RenderingContextSettings` enables anti-aliasing. Leave it on unless you're chasing a pixel-art aesthetic.
+
+## Coordinate units (the part that confuses everyone)
+
+Canvas uses the same coordinate space as the rest of ArkUI: virtual pixels (`vp`). You set the Canvas width to `320` (vp), and inside the context you draw to `(20, 20, 100, 60)` — those are also vp.
+
+This means a pixel-perfect 1:1 line works without any scaling math. It also means **the Canvas implicitly scales with display density** — your drawing won't look pixelated on high-DPI screens, but it also won't be exactly 100 device pixels wide. For most app UIs that's exactly what you want.
+
+If you really need device-pixel precision (rare), you can read `display.getDefaultDisplaySync().densityPixels` and scale your coordinates accordingly. I've never needed to.
+
+## Paths: lines, curves, fills
+
+Pathing is identical to HTML5: `beginPath`, `moveTo`, `lineTo`, `bezierCurveTo`, `closePath`, then `fill()` or `stroke()`. A small example — drawing a triangle and a rounded rectangle:
+
+```typescript
+.onReady(() => {
+  // Triangle
+  this.ctx.beginPath();
+  this.ctx.moveTo(40, 200);
+  this.ctx.lineTo(120, 200);
+  this.ctx.lineTo(80, 120);
+  this.ctx.closePath();
+  this.ctx.fillStyle = '#3478f6';
+  this.ctx.fill();
+
+  // Rounded rect (manual, since roundRect support is patchy)
+  this.drawRoundRect(160, 120, 120, 80, 12);
+  this.ctx.fillStyle = '#22c55e';
+  this.ctx.fill();
+})
+
+drawRoundRect(x: number, y: number, w: number, h: number, r: number) {
+  const c = this.ctx;
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + w - r, y);
+  c.quadraticCurveTo(x + w, y, x + w, y + r);
+  c.lineTo(x + w, y + h - r);
+  c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  c.lineTo(x + r, y + h);
+  c.quadraticCurveTo(x, y + h, x, y + h - r);
+  c.lineTo(x, y + r);
+  c.quadraticCurveTo(x, y, x + r, y);
+  c.closePath();
+}
+```
+
+<Aside type="note" title="`roundRect` support">
+The `roundRect` method exists in newer SDK versions but availability has been inconsistent. The hand-rolled version above works everywhere and you can copy it forever.
+</Aside>
+
+## Gradients and patterns
+
+`createLinearGradient` and `createRadialGradient` work as you'd expect. The colors are CSS color strings.
+
+```typescript
+const grad = this.ctx.createLinearGradient(0, 0, 0, 240);
+grad.addColorStop(0, '#3478f6');
+grad.addColorStop(1, '#22c55e');
+this.ctx.fillStyle = grad;
+this.ctx.fillRect(0, 0, 320, 240);
+```
+
+For repeating tile patterns, use `createPattern(image, 'repeat')`. This requires loading an image first, which has its own semantics (next section).
+
+## Drawing images and image clipping
+
+Images need to be loaded as a `PixelMap` before you can draw them. The most ergonomic path is via the resource system:
+
+```typescript
+import image from '@ohos.multimedia.image';
+
+async loadImage(): Promise<image.PixelMap> {
+  const ctx = getContext(this) as common.UIAbilityContext;
+  const buffer = await ctx.resourceManager.getMediaContent($r('app.media.avatar'));
+  const source = image.createImageSource(buffer.buffer);
+  return source.createPixelMap();
+}
+```
+
+Then draw with clipping for a circular avatar — a very common ask:
+
+```typescript
+this.ctx.save();
+this.ctx.beginPath();
+this.ctx.arc(80, 80, 40, 0, Math.PI * 2);
+this.ctx.clip();
+this.ctx.drawImage(px, 40, 40, 80, 80);
+this.ctx.restore();
+```
+
+Two things to watch:
+
+- **`clip()` permanently affects subsequent draws** until you `restore()`. Always pair `save()` and `restore()` around clipping work.
+- **`drawImage` with `PixelMap` is fine but you must hold the reference.** If you `release()` the PixelMap and then redraw on a later frame, you'll get an error.
+
+## Animation: the right way to use requestAnimationFrame
+
+Here's where the real bugs live. The wrong way is to use `setInterval(16ms)` and call it a day. The right way is `requestAnimationFrame`, with **manual cancellation on unmount**, because ArkUI does *not* automatically stop your RAF loop when the page disappears.
+
+The classic offender — an animated wave:
+
+```typescript
+@Entry @Component
+struct Wave {
+  private settings = new RenderingContextSettings(true);
+  private ctx = new CanvasRenderingContext2D(this.settings);
+  private rafId: number = 0;
+  private t: number = 0;
+  private running: boolean = false;
+
+  build() {
+    Canvas(this.ctx)
+      .width('100%').height(160)
+      .backgroundColor('#0b1020')
+      .onReady(() => {
+        this.running = true;
+        this.loop();
+      });
+  }
+
+  aboutToDisappear() {
+    this.running = false;
+    cancelAnimationFrame(this.rafId);
+  }
+
+  loop = () => {
+    if (!this.running) return;
+    this.t += 0.08;
+    this.draw();
+    this.rafId = requestAnimationFrame(this.loop);
+  }
+
+  draw() {
+    const c = this.ctx;
+    const w = 360, h = 160;
+    c.clearRect(0, 0, w, h);
+
+    c.beginPath();
+    for (let x = 0; x <= w; x += 4) {
+      const y = h / 2 + Math.sin((x / 40) + this.t) * 24;
+      if (x === 0) c.moveTo(x, y);
+      else c.lineTo(x, y);
+    }
+    c.lineTo(w, h);
+    c.lineTo(0, h);
+    c.closePath();
+
+    const grad = c.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(52, 120, 246, 0.8)');
+    grad.addColorStop(1, 'rgba(52, 120, 246, 0.1)');
+    c.fillStyle = grad;
+    c.fill();
+  }
+}
+```
+
+Notice the discipline:
+
+1. **`running` flag.** Even after you cancel the RAF, an in-flight callback can still execute once. The flag prevents that.
+2. **`aboutToDisappear` cancels *and* clears the flag.** Belt and suspenders.
+3. **Arrow function for `loop`.** This binds `this` correctly. If you write it as `loop() { ... }` and pass `this.loop` to RAF, you'll lose the binding.
+4. **`clearRect` at the start of every draw.** Otherwise you smear the previous frame.
+
+<Aside type="caution" title="The `clearRect` performance trap">
+Clearing the entire canvas every frame is fine for small canvases. For full-screen drawings at 60fps, profile carefully — sometimes redrawing only the dirty region with `save/restore/clip` is dramatically cheaper. But for anything under ~400×400 vp, just clear the whole thing.
+</Aside>
+
+## Common pitfalls
+
+- **Drawing before `onReady`.** Silent no-op. If your canvas is blank, this is the first thing to check.
+- **Forgetting to `cancelAnimationFrame`.** Battery drain and ghost CPU usage after the page disappears.
+- **`globalAlpha` survives across draws.** Setting `ctx.globalAlpha = 0.5` once applies to *every* subsequent draw until you set it back. Wrap alpha changes with `save()`/`restore()`.
+- **Text rendering needs explicit font.** `ctx.font = '20px sans-serif'` before `fillText`. Without it, the size is platform-default and surprises you.
+- **Mixing `OffscreenCanvas` and the main context.** `transferToImageBitmap` works, but you must `drawImage` the bitmap onto the main context yourself — it doesn't auto-display.
+
+## When to use Canvas vs ArkUI components
+
+If you can express the visual with ArkUI components and modifiers, **do that first**. ArkUI components are accessible, themable, animation-friendly, and battery-friendly. Reach for Canvas only when:
+
+- You're drawing something procedural (charts, signal visualizations, gauges, mini-games).
+- You need pixel-level control (image filters, color pickers, signature pads).
+- You're porting an existing HTML5 Canvas codebase.
+
+A common mistake is to build a "card" UI in Canvas because it feels powerful. You'll regret it the first time the design system asks you to add a hover state, support dark mode, or animate a transition.
+
+## A small worked example: a signature pad
+
+To tie it together, here's a finger-drawn signature pad. It uses path drawing, pointer events, and proper state management.
+
+```typescript
+@Entry @Component
+struct SignaturePad {
+  private settings = new RenderingContextSettings(true);
+  private ctx = new CanvasRenderingContext2D(this.settings);
+  private drawing: boolean = false;
+
+  build() {
+    Column({ space: 12 }) {
+      Canvas(this.ctx)
+        .width('100%').height(240)
+        .backgroundColor('#fff')
+        .borderRadius(12)
+        .onReady(() => {
+          this.ctx.lineWidth = 2;
+          this.ctx.strokeStyle = '#0b1020';
+          this.ctx.lineCap = 'round';
+          this.ctx.lineJoin = 'round';
+        })
+        .onTouch(e => {
+          const t = e.touches[0];
+          if (e.type === TouchType.Down) {
+            this.drawing = true;
+            this.ctx.beginPath();
+            this.ctx.moveTo(t.x, t.y);
+          } else if (e.type === TouchType.Move && this.drawing) {
+            this.ctx.lineTo(t.x, t.y);
+            this.ctx.stroke();
+          } else if (e.type === TouchType.Up) {
+            this.drawing = false;
+          }
+        });
+
+      Row({ space: 12 }) {
+        Button('Clear').onClick(() => {
+          this.ctx.clearRect(0, 0, 1000, 1000);
+        });
+      }
+    }
+    .padding(24);
+  }
+}
+```
+
+A real product version would also handle multi-touch (ignore extra fingers), pressure (`t.force`), and export-to-PNG (use `OffscreenCanvas` + `transferToImageBitmap` + `image.PixelMap`-based encoding). But this is enough to ship a v1.
+
+## Closing thoughts
+
+Canvas in HarmonyOS rewards discipline. The API is straightforward; the bugs are almost always lifecycle bugs. If you remember three things from this tutorial:
+
+1. **Draw inside `onReady` first**, then anywhere.
+2. **Always `cancelAnimationFrame` in `aboutToDisappear`**, plus a `running` flag.
+3. **Use `save()` / `restore()` around any state mutation** (clip, alpha, transform). This single habit prevents an entire class of "why does my drawing look weird sometimes" bugs.
+
+The rest is just creativity.
+
+## Related references
+
+- [`docs/ui/canvas`](/docs/ui/canvas/) — full Canvas API reference, including OffscreenCanvas and PixelMap encoding
+- [`docs/ui/visual-effects-recipes`](/docs/ui/visual-effects-recipes/) — Canvas-based visual effects (animated wave, glow, etc.)
+- [`docs/ui/animation-and-gesture`](/docs/ui/animation-and-gesture/) — gesture handling primer for `onTouch` and friends

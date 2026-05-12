@@ -1,0 +1,286 @@
+---
+title: "HarmonyOS Canvas 绘图完整教程"
+description: "用 ArkUI Canvas 组件和 CanvasRenderingContext2D 做 HarmonyOS 2D 绘图——路径、渐变、图片裁剪，以及一个用 RAF 节奏控制的水波动画。"
+pubDate: 2025-04-12
+sidebar:
+  order: 3
+tags: [harmonyos, canvas, 2d-drawing, arkui]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+写过 HTML5 Canvas 的人，HarmonyOS Canvas API 你已经会了 90%。组件叫 `Canvas`，渲染上下文叫 `CanvasRenderingContext2D`，方法名几乎一样：`fillRect`、`beginPath`、`moveTo`、`lineTo`、`arc`、`fillText`、`drawImage`。说实话第一眼还有点怀旧。
+
+但鸿蒙 Canvas 也有自己的点——坐标单位、帧循环、图片加载语义，以及几个顺序错了就静默白屏的行为。这篇从头到尾走一遍，最后给一个可以直接抄的水波动画。
+
+## 准备一块画布
+
+最小可绘画布需要三样东西：`RenderingContextSettings`、`CanvasRenderingContext2D`、绑了上下文的 `Canvas` 组件。
+
+```typescript
+@Entry @Component
+struct HelloCanvas {
+  private settings: RenderingContextSettings = new RenderingContextSettings(true);
+  private ctx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
+
+  build() {
+    Column() {
+      Canvas(this.ctx)
+        .width(320).height(240)
+        .backgroundColor('#f5f5f7')
+        .onReady(() => {
+          this.ctx.fillStyle = '#3478f6';
+          this.ctx.fillRect(20, 20, 100, 60);
+        });
+    }
+    .padding(24);
+  }
+}
+```
+
+没人提醒你的：**首次绘制别在 `onReady` 之外做**。上下文在框架回调之前还没准备好；在 `aboutToAppear` 里画啥都看不到。第一次 `onReady` 之后，事件回调里、帧循环里、异步回调里画都行。
+
+`RenderingContextSettings(true)` 那个 `true` 是开抗锯齿，除非做像素艺术，不然别关。
+
+## 坐标单位（让所有人困惑的那个）
+
+Canvas 用和 ArkUI 其他地方一样的坐标系：虚拟像素 `vp`。Canvas 宽 `320`（vp），里面画 `(20, 20, 100, 60)` 也是 vp。
+
+意思是 1:1 的线条不需要任何缩放数学。也意思是 **Canvas 隐式跟着 DPI 缩放**——画在高 DPI 屏不会糊，但也不是设备物理 100 像素。日常 App UI 这就是你想要的。
+
+真要设备物理像素精度（少见），可以读 `display.getDefaultDisplaySync().densityPixels` 自己缩放。我没遇到过非这么做不可的场景。
+
+## 路径：线、曲线、填充
+
+Pathing 和 HTML5 一致：`beginPath`、`moveTo`、`lineTo`、`bezierCurveTo`、`closePath`，再 `fill()` 或 `stroke()`。
+
+```typescript
+.onReady(() => {
+  // 三角形
+  this.ctx.beginPath();
+  this.ctx.moveTo(40, 200);
+  this.ctx.lineTo(120, 200);
+  this.ctx.lineTo(80, 120);
+  this.ctx.closePath();
+  this.ctx.fillStyle = '#3478f6';
+  this.ctx.fill();
+})
+
+drawRoundRect(x: number, y: number, w: number, h: number, r: number) {
+  const c = this.ctx;
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + w - r, y);
+  c.quadraticCurveTo(x + w, y, x + w, y + r);
+  c.lineTo(x + w, y + h - r);
+  c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  c.lineTo(x + r, y + h);
+  c.quadraticCurveTo(x, y + h, x, y + h - r);
+  c.lineTo(x, y + r);
+  c.quadraticCurveTo(x, y, x + r, y);
+  c.closePath();
+}
+```
+
+<Aside type="note" title="`roundRect` 兼容性">
+新版 SDK 有 `roundRect`，但兼容性不一致。手写版到处能用，可以一直用。
+</Aside>
+
+## 渐变和 pattern
+
+```typescript
+const grad = this.ctx.createLinearGradient(0, 0, 0, 240);
+grad.addColorStop(0, '#3478f6');
+grad.addColorStop(1, '#22c55e');
+this.ctx.fillStyle = grad;
+this.ctx.fillRect(0, 0, 320, 240);
+```
+
+平铺图案用 `createPattern(image, 'repeat')`，需要先加载图片。
+
+## 画图片和图片裁剪
+
+图片要先加载成 `PixelMap` 才能画。最顺的路径是走资源系统：
+
+```typescript
+import image from '@ohos.multimedia.image';
+
+async loadImage(): Promise<image.PixelMap> {
+  const ctx = getContext(this) as common.UIAbilityContext;
+  const buffer = await ctx.resourceManager.getMediaContent($r('app.media.avatar'));
+  const source = image.createImageSource(buffer.buffer);
+  return source.createPixelMap();
+}
+```
+
+圆形头像（高频需求）用 clip：
+
+```typescript
+this.ctx.save();
+this.ctx.beginPath();
+this.ctx.arc(80, 80, 40, 0, Math.PI * 2);
+this.ctx.clip();
+this.ctx.drawImage(px, 40, 40, 80, 80);
+this.ctx.restore();
+```
+
+两个要看牢的点：
+
+- **`clip()` 会持久影响后续绘制**，直到 `restore()`。clip 周围一定包 `save()` / `restore()`。
+- **持有 PixelMap 引用。** 在下一帧绘制之前 `release()` 就会报错。
+
+## 动画：requestAnimationFrame 的正确用法
+
+真正的 bug 大多在这。错误做法是 `setInterval(16ms)` 一了百了。正确做法是 `requestAnimationFrame`，**外加在 unmount 时手动取消**——ArkUI **不会** 在页面消失时帮你停 RAF 循环。
+
+经典翻车现场——一个动态水波：
+
+```typescript
+@Entry @Component
+struct Wave {
+  private settings = new RenderingContextSettings(true);
+  private ctx = new CanvasRenderingContext2D(this.settings);
+  private rafId: number = 0;
+  private t: number = 0;
+  private running: boolean = false;
+
+  build() {
+    Canvas(this.ctx)
+      .width('100%').height(160)
+      .backgroundColor('#0b1020')
+      .onReady(() => {
+        this.running = true;
+        this.loop();
+      });
+  }
+
+  aboutToDisappear() {
+    this.running = false;
+    cancelAnimationFrame(this.rafId);
+  }
+
+  loop = () => {
+    if (!this.running) return;
+    this.t += 0.08;
+    this.draw();
+    this.rafId = requestAnimationFrame(this.loop);
+  }
+
+  draw() {
+    const c = this.ctx;
+    const w = 360, h = 160;
+    c.clearRect(0, 0, w, h);
+
+    c.beginPath();
+    for (let x = 0; x <= w; x += 4) {
+      const y = h / 2 + Math.sin((x / 40) + this.t) * 24;
+      if (x === 0) c.moveTo(x, y);
+      else c.lineTo(x, y);
+    }
+    c.lineTo(w, h);
+    c.lineTo(0, h);
+    c.closePath();
+
+    const grad = c.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(52, 120, 246, 0.8)');
+    grad.addColorStop(1, 'rgba(52, 120, 246, 0.1)');
+    c.fillStyle = grad;
+    c.fill();
+  }
+}
+```
+
+注意几点纪律：
+
+1. **`running` 标志位。** 即便 cancel 了 RAF，已 in-flight 的回调可能还会执行一次，这个 flag 兜底。
+2. **`aboutToDisappear` 同时 cancel + 清 flag。** 双保险。
+3. **`loop` 用箭头函数。** 这样 `this` 绑定正确。写成普通方法再传 `this.loop` 给 RAF 会丢 `this`。
+4. **每帧开头 `clearRect`。** 不然上一帧会残留。
+
+<Aside type="caution" title="`clearRect` 性能陷阱">
+小 Canvas 每帧整块 clear 没事。全屏 60fps 时要 profile，有时候用 `save/restore/clip` 只重绘脏区域便宜得多。但 ~400×400 vp 以下，整块 clear 就行。
+</Aside>
+
+## 常见坑
+
+- **`onReady` 之前画了。** 静默无效。Canvas 白屏先排查这个。
+- **忘了 `cancelAnimationFrame`。** 离开页面后偷电、偷 CPU。
+- **`globalAlpha` 跨绘制保留。** 设了 `0.5` 之后所有后续绘制都 0.5，要 `save/restore` 包起来。
+- **文本要先设字体。** `ctx.font = '20px sans-serif'` 再 `fillText`。不设的话尺寸是平台默认，会让你惊讶。
+- **`OffscreenCanvas` 需要手动 `drawImage` 回主上下文。** `transferToImageBitmap` 不会自己显示。
+
+## Canvas vs ArkUI 组件，怎么选？
+
+**能用 ArkUI 组件 + modifier 表达的视觉，先用组件。** 组件有可访问性、主题、动画友好、省电。下面场景才用 Canvas：
+
+- 程序化绘图（图表、信号可视化、仪表盘、小游戏）
+- 像素级控制（滤镜、取色器、签名板）
+- 移植已有的 HTML5 Canvas 代码
+
+常见错误：觉得 Canvas 强大就拿它做"卡片" UI。设计师让你加 hover、加暗色模式、加过渡动画的那一刻你就要后悔。
+
+## 综合示例：手写签名板
+
+把上面的串起来。手指绘制 + 触摸事件 + 状态管理。
+
+```typescript
+@Entry @Component
+struct SignaturePad {
+  private settings = new RenderingContextSettings(true);
+  private ctx = new CanvasRenderingContext2D(this.settings);
+  private drawing: boolean = false;
+
+  build() {
+    Column({ space: 12 }) {
+      Canvas(this.ctx)
+        .width('100%').height(240)
+        .backgroundColor('#fff')
+        .borderRadius(12)
+        .onReady(() => {
+          this.ctx.lineWidth = 2;
+          this.ctx.strokeStyle = '#0b1020';
+          this.ctx.lineCap = 'round';
+          this.ctx.lineJoin = 'round';
+        })
+        .onTouch(e => {
+          const t = e.touches[0];
+          if (e.type === TouchType.Down) {
+            this.drawing = true;
+            this.ctx.beginPath();
+            this.ctx.moveTo(t.x, t.y);
+          } else if (e.type === TouchType.Move && this.drawing) {
+            this.ctx.lineTo(t.x, t.y);
+            this.ctx.stroke();
+          } else if (e.type === TouchType.Up) {
+            this.drawing = false;
+          }
+        });
+
+      Row({ space: 12 }) {
+        Button('Clear').onClick(() => {
+          this.ctx.clearRect(0, 0, 1000, 1000);
+        });
+      }
+    }
+    .padding(24);
+  }
+}
+```
+
+正经的产品版本还会处理多指（忽略多余手指）、压感（`t.force`）、导出 PNG（OffscreenCanvas + transferToImageBitmap + image.PixelMap 编码）。但这版本足以发 v1。
+
+## 收尾
+
+HarmonyOS Canvas 是吃纪律的工具。API 不复杂；bug 几乎都是生命周期 bug。如果你只记三件事：
+
+1. **首画在 `onReady` 里**，之后随便画。
+2. **`aboutToDisappear` 里 `cancelAnimationFrame` + flag**。
+3. **任何状态改动（clip / alpha / transform）用 `save()` / `restore()` 包起来**。这一个习惯能预防一大类"为什么我的画偶尔看着怪怪的"。
+
+剩下的就是创意。
+
+## 相关参考
+
+- [`docs/ui/canvas`](/zh/docs/ui/canvas/) —— 完整 Canvas API，包括 OffscreenCanvas 和 PixelMap 编码
+- [`docs/ui/visual-effects-recipes`](/zh/docs/ui/visual-effects-recipes/) —— Canvas 视觉效果（水波、辉光等）
+- [`docs/ui/animation-and-gesture`](/zh/docs/ui/animation-and-gesture/) —— `onTouch` 等手势处理基础

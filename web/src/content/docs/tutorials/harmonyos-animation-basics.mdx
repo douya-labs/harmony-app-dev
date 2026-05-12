@@ -1,0 +1,247 @@
+---
+title: "HarmonyOS Animation Basics: ArkUI Transition and Animator API Explained"
+description: "Property animation, transition, and the Animator class — three different tools for moving pixels in ArkUI. This guide explains when each one is the right call, with runnable code."
+pubDate: 2025-04-08
+sidebar:
+  order: 2
+tags: [harmonyos, arkui, animation, transition, animator]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+ArkUI gives you three different ways to animate something. They overlap enough that it's genuinely confusing which one to reach for. After shipping a couple of HarmonyOS pages with non-trivial motion, here's the mental map I wish I had on day one.
+
+The three tools are:
+
+1. **`animateTo` (property animation)** — change a property, wrap the change in `animateTo`, ArkUI tweens it. The 80% case.
+2. **`transition` (appear / disappear / shared element)** — declarative, attached to a component, fires when the component enters or leaves the tree.
+3. **`Animator` class** — a low-level value generator. You don't get a free property animation; you get `onFrame(value => ...)` and you wire it up yourself. Use when nothing else is flexible enough.
+
+Let's go through each, in the order you'll actually need them.
+
+## animateTo: the workhorse
+
+If you know `animate*` in CSS or `animateXxxAsState` in Compose, this is that. You wrap a state mutation in `animateTo({ duration, curve, ... }, () => { ... })` and ArkUI interpolates the visible properties between the old and new values.
+
+```typescript
+@Entry @Component
+struct Pulse {
+  @State scale: number = 1;
+
+  build() {
+    Column() {
+      Text('Tap me')
+        .fontSize(24)
+        .scale({ x: this.scale, y: this.scale })
+        .onClick(() => {
+          animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+            this.scale = this.scale === 1 ? 1.2 : 1;
+          });
+        });
+    }
+    .height('100%').width('100%').justifyContent(FlexAlign.Center)
+  }
+}
+```
+
+Three points worth knowing:
+
+- **Only animatable properties tween.** Width, height, opacity, position, rotation, scale, translation, padding, margin, color (in some cases) — yes. Layout direction or `flex` semantics — no.
+- **The mutation must happen *inside* the closure.** Mutating the state outside `animateTo` and then calling `animateTo` empty does nothing. The framework diffs the snapshot taken at entry vs the snapshot at exit.
+- **Curves are picked from the `Curve` enum** (`Linear`, `Ease`, `EaseIn`, `EaseOut`, `EaseInOut`, `Sharp`, `Friction`, etc.). For physics-y motion, use `curves.springMotion()` (note the lowercase `curves` — it's a separate import from `@ohos.curves`).
+
+```typescript
+import curves from '@ohos.curves';
+
+animateTo({ curve: curves.springMotion(0.4, 0.7) }, () => {
+  this.offsetY = -120;
+});
+```
+
+<Aside type="tip" title="When in doubt, animateTo">
+For 80% of UI motion — buttons reacting to taps, panels expanding, sheets sliding up, pull-to-refresh indicators — `animateTo` is the right tool. Don't overthink it.
+</Aside>
+
+## transition: enter and exit animations
+
+`transition` is for when a component appears or disappears from the tree. Think `AnimatedVisibility` in Compose, or React's `<Transition>`. You attach it once, and ArkUI plays the animation automatically when the component is mounted/unmounted via conditional rendering.
+
+```typescript
+@Entry @Component
+struct Sheet {
+  @State open: boolean = false;
+
+  build() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        Button(this.open ? 'Close' : 'Open')
+          .onClick(() => { this.open = !this.open });
+      }
+      .height('100%')
+      .width('100%')
+      .justifyContent(FlexAlign.Center);
+
+      if (this.open) {
+        Column() {
+          Text('I slide up from the bottom').padding(24);
+        }
+        .width('100%')
+        .height(220)
+        .backgroundColor('#3478f6')
+        .borderRadius(20)
+        .transition(TransitionEffect.move(TransitionEdge.BOTTOM)
+          .animation({ duration: 240, curve: Curve.EaseOut }));
+      }
+    }
+  }
+}
+```
+
+The `TransitionEffect` API composes well: you can chain `.combine(...)` to mix opacity + slide + scale. Read the [animation-and-gesture reference](/docs/ui/animation-and-gesture/) for the full vocabulary, but a useful starter set is:
+
+- `TransitionEffect.OPACITY` — fade
+- `TransitionEffect.move(edge)` — slide from edge
+- `TransitionEffect.scale({ x, y })` — scale from
+- `TransitionEffect.translate({ x, y })` — translate from offset
+
+`geometryTransition` is the shared-element cousin. You tag two components with the same key in two states and ArkUI animates between them. Powerful but easy to over-use; reach for it for hero images and detail-page expansions, not for every small interaction.
+
+## Animator: the manual transmission
+
+`Animator` is what you use when neither of the above gives you what you need. The classic case: animating a value that isn't a UI property — a Canvas drawing parameter, a physics simulation, an audio gain. You ask the system for a tween that runs on a frame loop and gives you the current value.
+
+```typescript
+import { Animator, AnimatorResult } from '@ohos.animator';
+
+@Entry @Component
+struct AnimatorDemo {
+  @State waveOffset: number = 0;
+  private animator: AnimatorResult | null = null;
+
+  aboutToAppear() {
+    this.animator = Animator.create({
+      duration: 1500,
+      easing: 'linear',
+      delay: 0,
+      fill: 'forwards',
+      direction: 'normal',
+      iterations: -1,   // infinite
+      begin: 0,
+      end: 100,
+    });
+    this.animator.onFrame = (value: number) => {
+      this.waveOffset = value;
+    };
+    this.animator.play();
+  }
+
+  aboutToDisappear() {
+    this.animator?.cancel();
+  }
+
+  build() {
+    Text(`Offset: ${this.waveOffset.toFixed(1)}`)
+  }
+}
+```
+
+Three things that bit me when I first used it:
+
+- **Always cancel in `aboutToDisappear`.** Otherwise you leak a frame callback and the page keeps "running" after you navigate away. Battery and CPU both notice.
+- **`iterations: -1`** is "infinite," not `Infinity`. The TypeScript types accept any number; pass `-1` explicitly.
+- **`onFrame` runs on the UI thread.** Heavy work inside it freezes scrolling. If you're computing something expensive, do it once in `onFrame` and let `@State` propagate.
+
+<Aside type="caution" title="Animator vs requestAnimationFrame">
+For Canvas-style "draw on every frame" loops, you can also use `requestAnimationFrame` directly. They're similar; `Animator` is convenient when you specifically want a tween from A to B with an easing curve. For free-form per-frame work, `requestAnimationFrame` is often clearer.
+</Aside>
+
+## A worked example: a "loading dot" ripple
+
+Let's combine the three. The component shows three dots that pulse with a stagger, plus a fade-in/out when shown/hidden.
+
+```typescript
+@Component
+struct Dot {
+  @Prop delay: number;
+  @State scale: number = 1;
+
+  aboutToAppear() {
+    setTimeout(() => this.loop(), this.delay);
+  }
+
+  loop() {
+    animateTo({
+      duration: 600, curve: Curve.EaseInOut,
+      onFinish: () => this.loop(),
+    }, () => {
+      this.scale = this.scale === 1 ? 1.6 : 1;
+    });
+  }
+
+  build() {
+    Circle({ width: 10, height: 10 })
+      .fill('#3478f6')
+      .scale({ x: this.scale, y: this.scale });
+  }
+}
+
+@Entry @Component
+struct LoadingRipple {
+  @State visible: boolean = true;
+
+  build() {
+    Column({ space: 24 }) {
+      Button(this.visible ? 'Hide' : 'Show')
+        .onClick(() => { this.visible = !this.visible });
+
+      if (this.visible) {
+        Row({ space: 16 }) {
+          Dot({ delay: 0 })
+          Dot({ delay: 150 })
+          Dot({ delay: 300 })
+        }
+        .transition(TransitionEffect.OPACITY
+          .animation({ duration: 200, curve: Curve.EaseOut }));
+      }
+    }
+    .padding(32)
+  }
+}
+```
+
+Notice the layering:
+
+- `animateTo` drives each dot's pulse — a property animation.
+- `transition` handles the fade in/out of the whole row when `visible` toggles.
+- `Animator` isn't needed here. If we wanted the dots to ride a sine wave instead of a binary scale, that's where it would come in.
+
+## Common gotchas
+
+- **Animations don't fire on first render.** `animateTo` only animates *changes*. If you want an enter animation, use `transition` (or initialize state to one value and mutate to another in `aboutToAppear`).
+- **Layout-changing properties cause reflow.** Animating `width` is fine but expensive. Prefer `scale` or `translate` for cheap motion.
+- **Don't nest `animateTo` blindly.** Calling `animateTo` inside `animateTo`'s closure leads to surprising behavior. Each call creates an animation context; chain them with `onFinish` instead.
+- **`onFinish` doesn't fire if the animation is interrupted.** If you start a new animation that overrides the previous one's target, the previous `onFinish` is dropped. Don't rely on it for cleanup; use `aboutToDisappear` for cancellation.
+- **Spring curves can overshoot.** `springMotion` is gorgeous but it crosses your target value. If you're animating opacity or anything clamped to [0,1], use `EaseOut` instead.
+
+## When to reach for what
+
+| You want… | Use |
+|---|---|
+| A button to scale on tap | `animateTo` |
+| A panel to slide up when shown | `transition(TransitionEffect.move(...))` |
+| A list item to expand smoothly when tapped | `animateTo` on `height` (or use `Tween` size) |
+| A value to drive a Canvas frame-by-frame | `Animator` or `requestAnimationFrame` |
+| Hero image animating between two pages | `geometryTransition` |
+| Physics-feel "bouncy" reveal | `animateTo` with `curves.springMotion()` |
+
+## Closing thought
+
+ArkUI animation is well-designed but the surface area is wide. Pick `animateTo` first; only graduate to `transition` and `Animator` when `animateTo` clearly can't express what you want. That order is also the order from cheapest to most expensive in terms of CPU and complexity.
+
+If you find yourself reaching for `Animator` for a UI button, stop and re-read this post. It's almost certainly the wrong tool.
+
+## Related references
+
+- [`docs/ui/animation-and-gesture`](/docs/ui/animation-and-gesture/) — the full ArkUI animation vocabulary
+- [`docs/ui/visual-effects-recipes`](/docs/ui/visual-effects-recipes/) — spring motion, shared transitions, glow, glassmorphism
+- [`docs/ui/ui-implementation-rules`](/docs/ui/ui-implementation-rules/) — MVP-first implementation rules

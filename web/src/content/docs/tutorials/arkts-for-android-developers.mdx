@@ -1,0 +1,231 @@
+---
+title: "Getting Started with ArkTS: A Beginner's Guide for Android Developers"
+description: "ArkTS is HarmonyOS's primary app language. If you know Kotlin or modern Java, here's the shortest mental-model bridge to writing real ArkUI pages — including the parts the official docs gloss over."
+pubDate: 2025-04-03
+sidebar:
+  order: 1
+tags: [arkts, harmonyos, beginner, android-migration]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+If you've spent the last decade writing Android in Kotlin or Java, the first thing to understand about **ArkTS** is that it isn't trying to be a new language. It's **TypeScript with stricter rules and a few decorators bolted on for ArkUI**. That's the whole picture, and once you internalize it, the syntax stops being the hard part.
+
+The hard part is *unlearning* a few Android instincts. This post is the bridge I wish I had when I started — written after a few weeks of building ArkUI pages, hitting the obvious walls, and figuring out which of my Kotlin habits transferred and which ones quietly produced bugs.
+
+<Aside type="note" title="Who this is for">
+You write Android apps in Kotlin or modern Java, you've heard "HarmonyOS uses ArkTS," and you want to know what's *actually* different — not a feature checklist. We'll skip the "what is HarmonyOS" preamble.
+</Aside>
+
+## What ArkTS actually is
+
+ArkTS is a constrained dialect of TypeScript. Almost everything you know about TypeScript still works — interfaces, generics, union types, async/await. The constraints exist because the ArkCompiler does ahead-of-time compilation and wants type information to be statically inferable. In practice this means:
+
+- **No `any` in places where ArkUI needs to track state.** You can still use `any` in plain logic, but the moment you put a value into a `@State`-decorated field, the type has to be concrete.
+- **No dynamic property creation** on objects you've typed. If a class has fields `a` and `b`, you can't slap a `c` on it later. (Coming from Java this feels normal. Coming from TypeScript it's a small adjustment.)
+- **No `Object` / `Function` as catch-all types** in ArkUI-tracked state. Use `Record<string, X>` or a typed interface.
+
+If your Kotlin instinct is "make a data class for it," that instinct is correct here too. ArkTS rewards strong typing the same way Kotlin does.
+
+```typescript
+// Instead of `let user: any = ...`
+interface User {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+}
+
+const u: User = { id: '1', name: 'Lay' };
+```
+
+## ArkUI in one mental model
+
+ArkUI is a declarative UI framework. If you've used Jetpack Compose, you already know the shape of it: a function (here, a `build()` method) returns a UI tree, and the framework re-runs the relevant parts when state changes.
+
+The minimum useful page looks like this:
+
+```typescript
+@Entry
+@Component
+struct HelloPage {
+  @State count: number = 0;
+
+  build() {
+    Column({ space: 12 }) {
+      Text(`Tapped ${this.count} times`)
+        .fontSize(20)
+      Button('Tap me')
+        .onClick(() => { this.count++ })
+    }
+    .width('100%')
+    .padding(16)
+  }
+}
+```
+
+A few things to notice, because they trip everyone up:
+
+1. **`struct`, not `class`.** ArkTS uses the `struct` keyword for components. It's not a value type in the C# sense — it's just the keyword the framework chose to mark "this is an ArkUI component."
+2. **`@Entry`** marks the component as the root of a page (think `@AndroidEntryPoint` for an Activity, sort of). Only one `@Entry` per page file.
+3. **`@Component`** is mandatory on every component, including children. Forget it and you get a confusing parse error.
+4. **`build()`** is the render function. It takes no arguments and returns nothing — the UI is described inside it via the chained DSL.
+5. **`@State`** is your `mutableStateOf` equivalent. Mutate it normally; the framework re-runs `build()`.
+
+The chained methods after `Text(...)` and `Button(...)` are *attribute methods*. They look like CSS-in-Kotlin, and they behave the same way Compose modifiers do — applied in order, last write wins for properties of the same name.
+
+## The state decorators, demystified
+
+This is the part where the official docs throw seven decorators at you and you start to glaze over. Here's the survival kit:
+
+| Decorator | Use it when… | Compose equivalent (rough) |
+|---|---|---|
+| `@State` | Local component state | `remember { mutableStateOf(...) }` |
+| `@Prop` | Parent → child, child can mutate locally (one-way copy) | Pass-by-value parameter |
+| `@Link` | Parent ↔ child, two-way | Hoisted state passed down |
+| `@Provide` / `@Consume` | Skip-level data, like a screen-scoped singleton | `CompositionLocal` |
+| `@Observed` / `@ObjectLink` | Track changes inside a class instance | Stable class with observable fields |
+
+Three rules will save you hours:
+
+- **`@State` only triggers a re-render on `=` assignment.** Pushing to an array (`this.list.push(x)`) does *not* re-render. You have to do `this.list = [...this.list, x]`. Same trap as React with primitive state.
+- **For nested object mutations**, you need `@Observed` on the class and `@ObjectLink` on the property. Otherwise ArkUI sees the reference is the same and skips.
+- **`@Prop` makes a *copy*.** If the parent updates, the child gets the new value, but if the child mutates its prop, the parent doesn't see it. Use `@Link` if you want two-way.
+
+```typescript
+@Observed
+class TodoItem {
+  done: boolean = false;
+  constructor(public title: string) {}
+}
+
+@Component
+struct TodoRow {
+  @ObjectLink item: TodoItem; // can be mutated and ArkUI tracks it
+
+  build() {
+    Row() {
+      Toggle({ type: ToggleType.Checkbox, isOn: this.item.done })
+        .onChange(v => { this.item.done = v });
+      Text(this.item.title);
+    }
+  }
+}
+```
+
+## Layout: Column / Row / Stack and the part nobody mentions
+
+Coming from Android XML or Compose, the three primitives — `Column`, `Row`, `Stack` — are intuitive. They behave roughly like `LinearLayout` (vertical/horizontal) and `FrameLayout`. What's *not* obvious:
+
+- **`Flex(...)` is a separate component**, not a Column variant. Use it when you actually want flexbox semantics (wrap, grow, shrink). For a simple vertical stack, `Column` is cheaper.
+- **Spacing.** `Column({ space: 12 })` sets a uniform gap between children. There is no `Modifier.padding` per child; you call `.padding(...)` on the child itself.
+- **Width/Height** default to `wrap_content`. Set `.width('100%')` to fill the parent. Percentages and `vp` (virtual pixel) units are the day-to-day dimensions; `px` exists but you almost never want raw pixels.
+
+<Aside type="caution" title="The `'100%'` quirk">
+A child set to `.width('100%')` inside a `Column` works fine. Inside a `Scroll`, it sometimes collapses to zero. The fix is usually to set the constraint on the `Scroll` itself: `Scroll() { ... }.width('100%')`.
+</Aside>
+
+## Asynchronous code: still TypeScript, mostly
+
+`async` / `await` work exactly as they do in TypeScript. Promises behave the same. The HarmonyOS standard library exposes most platform APIs in two flavors — a callback flavor (older, `xxxxAsync(callback)`) and a Promise flavor. Always reach for the Promise flavor; it composes with `await` and reads like Kotlin coroutines.
+
+```typescript
+import http from '@ohos.net.http';
+
+async function fetchProfile(id: string): Promise<User> {
+  const client = http.createHttp();
+  try {
+    const res = await client.request(`https://api.example.com/users/${id}`);
+    return JSON.parse(res.result as string) as User;
+  } finally {
+    client.destroy();
+  }
+}
+```
+
+The annoying part: **you cannot `await` inside `build()`**. `build()` is synchronous. The pattern is the same as in Compose — kick off the async call from a lifecycle hook (`aboutToAppear()` is the closest analog to `LaunchedEffect`) and let `@State` drive the re-render.
+
+```typescript
+@Entry @Component
+struct ProfilePage {
+  @State user: User | null = null;
+
+  aboutToAppear() {
+    fetchProfile('1').then(u => { this.user = u });
+  }
+
+  build() {
+    if (this.user === null) {
+      LoadingProgress().width(40).height(40)
+    } else {
+      Text(this.user.name)
+    }
+  }
+}
+```
+
+## Things that will bite you in week one
+
+These are the surprises that cost me hours, in roughly the order I hit them:
+
+- **The IDE (DevEco Studio) is *very* picky about file naming.** A page file must be referenced in `main_pages.json`, or it just silently won't be a route. The error message when you forget is unhelpful.
+- **Hot reload doesn't always pick up `@State` type changes.** When you change a `@State` field's type, restart the preview. You'll save yourself half an hour.
+- **`console.log` works in the simulator but not always on real devices.** Use `hilog` for anything you need to see on a phone. The full pattern is in the [debugging reference](/docs/workflow/debugging/).
+- **Permissions are declarative + runtime, like Android, but the runtime API is different.** Don't expect `ContextCompat.checkSelfPermission`. The `abilityAccessCtrl` API is what you want; see the [permissions reference](/docs/platform/permissions/).
+- **There is no Activity stack.** HarmonyOS uses a `UIAbility` model with `Navigation` (recommended) or `Router` for in-page transitions. Mentally map Activity → UIAbility, Fragment → page (route).
+
+## A small but realistic first app
+
+Here's what a "list + detail" looks like end-to-end. Two files: a list page and a detail page, glued by `Navigation`.
+
+```typescript
+// pages/HomePage.ets
+@Entry @Component
+struct HomePage {
+  @State items: string[] = ['Alpha', 'Beta', 'Gamma'];
+  pathStack: NavPathStack = new NavPathStack();
+
+  build() {
+    Navigation(this.pathStack) {
+      List() {
+        ForEach(this.items, (name: string) => {
+          ListItem() {
+            Text(name).fontSize(18).padding(16)
+          }
+          .onClick(() => this.pathStack.pushPathByName('Detail', name))
+        })
+      }
+    }
+    .title('Home')
+  }
+}
+```
+
+```typescript
+// pages/DetailPage.ets
+@Builder
+function DetailBuilder(name: string) {
+  NavDestination() {
+    Column({ space: 8 }) {
+      Text(`You picked: ${name}`).fontSize(22)
+    }
+    .padding(24)
+  }
+  .title(name)
+}
+```
+
+That `@Builder` + `NavDestination` pattern is the modern HarmonyOS way of declaring a destination. It feels weird at first; you'll get used to it. The alternative (`Router.pushUrl`) still works but is being deprecated in favor of `Navigation` for new apps.
+
+## What to read next
+
+- The [App Model reference](/docs/foundation/app-model/) explains UIAbility and Stage model in depth — read this *before* you start designing multi-screen apps.
+- The [State Management reference](/docs/ui/state-management/) is the survival guide for the seven decorators above.
+- If you're going to do anything visually interesting, jump to [Animation & Gesture](/docs/ui/animation-and-gesture/) and [Visual Effects Recipes](/docs/ui/visual-effects-recipes/).
+
+You won't write idiomatic ArkTS in a day, but you'll write *working* ArkTS in a day. That's the goal of this post — get to the first compiling page, then learn the rest by shipping. Good luck.
+
+## Related references
+
+- [`docs/foundation/arkts-language`](/docs/foundation/arkts-language/) — language semantics & ArkTS-specific constraints
+- [`docs/ui/state-management`](/docs/ui/state-management/) — `@State`, `@Prop`, `@Link`, `@Observed`
+- [`docs/foundation/app-model`](/docs/foundation/app-model/) — Stage model, UIAbility, Navigation

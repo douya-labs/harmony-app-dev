@@ -1,0 +1,231 @@
+---
+title: "ArkTS 入门：写给 Android 开发者的实用指南"
+description: "ArkTS 是 HarmonyOS 的主力应用语言。如果你已有 Kotlin 或现代 Java 经验，这篇会帮你以最短的路径建立 ArkTS 与 ArkUI 的心智模型——包括官方文档里没明说的部分。"
+pubDate: 2025-04-03
+sidebar:
+  order: 1
+tags: [arkts, harmonyos, beginner, android-migration]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+如果你过去十年一直在写 Android（Kotlin 或 Java），关于 **ArkTS** 你需要知道的第一件事是：它并不打算做一门全新的语言，它就是 **加了一些约束、再叠了一层装饰器（给 ArkUI 用）的 TypeScript**。这就是全部，理解这点之后语法就不再是难点。
+
+真正难的是 *忘掉* 几个 Android 习惯。这篇是我刚入门时希望有人给我的那份"过桥指南"——写在我用 ArkUI 撸了几周页面、踩了几个明显的坑、搞清楚 Kotlin 里哪些直觉能直接用、哪些会悄悄埋雷之后。
+
+<Aside type="note" title="这篇适合谁">
+你写过 Android（Kotlin 或现代 Java），听说 HarmonyOS 用 ArkTS，想知道**实际上**有什么区别——而不是要看一份特性清单。这里跳过"什么是 HarmonyOS"那一段。
+</Aside>
+
+## ArkTS 到底是什么
+
+ArkTS 是一门"被收紧的 TypeScript 方言"。你知道的 TypeScript 大部分都还在——interface、泛型、union 类型、async/await。约束的存在是因为 ArkCompiler 做 AOT 编译，需要类型在静态期就能推得出来。落到日常上：
+
+- **被 ArkUI 跟踪的 state 字段不能是 `any`。** 普通业务逻辑可以继续用 `any`，但凡是放进 `@State` 的字段都必须有具体类型。
+- **不能往已声明的对象上动态加字段。** 如果一个类只有 `a` 和 `b`，你不能后来再塞个 `c`。Java 出身觉得这是常识，TypeScript 出身的稍微调整一下就好。
+- **不能用 `Object` / `Function` 当兜底类型。** 用 `Record<string, X>` 或一个具体的 interface。
+
+如果你的 Kotlin 直觉是"为它建一个 data class"——这个直觉在 ArkTS 这边继续有效。强类型在这里的回报和在 Kotlin 里一样高。
+
+```typescript
+// 不要 `let user: any = ...`
+interface User {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+}
+
+const u: User = { id: '1', name: 'Lay' };
+```
+
+## 一个心智模型理解 ArkUI
+
+ArkUI 是声明式 UI 框架。如果你用过 Jetpack Compose，整体形状你已经懂了：一个函数（这里是 `build()` 方法）返回 UI 树，状态变化触发框架重新跑相关部分。
+
+最小可用的页面长这样：
+
+```typescript
+@Entry
+@Component
+struct HelloPage {
+  @State count: number = 0;
+
+  build() {
+    Column({ space: 12 }) {
+      Text(`Tapped ${this.count} times`)
+        .fontSize(20)
+      Button('Tap me')
+        .onClick(() => { this.count++ })
+    }
+    .width('100%')
+    .padding(16)
+  }
+}
+```
+
+几个让大家踩坑的细节：
+
+1. **是 `struct`，不是 `class`。** ArkTS 用 `struct` 关键字标识 UI 组件。它不是 C# 那种值类型，只是框架选用的关键字。
+2. **`@Entry`** 标识这是页面的根（粗略对应 `@AndroidEntryPoint` 之于 Activity）。一个页面文件只能有一个 `@Entry`。
+3. **`@Component`** 在每个组件上都必须有，包括子组件。漏写会得到一个让人摸不着头脑的解析错误。
+4. **`build()`** 是渲染函数。无参无返回，UI 用链式 DSL 写在里面。
+5. **`@State`** 是你的 `mutableStateOf` 等价物。正常赋值，框架会触发重渲。
+
+`Text(...)` 和 `Button(...)` 后面那一串链式方法是 *属性方法（attribute method）*。它看起来像 Kotlin 写 CSS，行为和 Compose modifier 类似——按顺序应用，同名后写覆盖前写。
+
+## 状态装饰器，去神秘化
+
+这一块官方文档一口气甩你七八个装饰器，看完就晕。这里是生存包：
+
+| 装饰器 | 什么时候用 | Compose 大致对应 |
+|---|---|---|
+| `@State` | 组件本地状态 | `remember { mutableStateOf(...) }` |
+| `@Prop` | 父→子，子可以本地改（单向拷贝） | 值参数 |
+| `@Link` | 父↔子双向 | 上提的 state 传下去 |
+| `@Provide` / `@Consume` | 跨层级共享，如页面级单例 | `CompositionLocal` |
+| `@Observed` / `@ObjectLink` | 跟踪类实例内部字段变化 | 带可观察字段的稳定类 |
+
+三条规则能省你几个小时：
+
+- **`@State` 只在 `=` 赋值时触发重渲。** `this.list.push(x)` 不会触发重渲。要 `this.list = [...this.list, x]`。和 React 用原始 state 一样的坑。
+- **嵌套对象内部要被跟踪**，需要类上 `@Observed`、字段上 `@ObjectLink`。否则 ArkUI 看到引用没变就跳过。
+- **`@Prop` 是值拷贝。** 父更新，子能拿到新值；子改 prop，父看不见。要双向用 `@Link`。
+
+```typescript
+@Observed
+class TodoItem {
+  done: boolean = false;
+  constructor(public title: string) {}
+}
+
+@Component
+struct TodoRow {
+  @ObjectLink item: TodoItem; // 可被修改且 ArkUI 追踪
+
+  build() {
+    Row() {
+      Toggle({ type: ToggleType.Checkbox, isOn: this.item.done })
+        .onChange(v => { this.item.done = v });
+      Text(this.item.title);
+    }
+  }
+}
+```
+
+## 布局：Column / Row / Stack 与一个没人说的细节
+
+`Column`、`Row`、`Stack` 三个原语对 Android XML / Compose 出身的人来说很直观，分别像 `LinearLayout` 竖排/横排和 `FrameLayout`。**不那么明显的**：
+
+- **`Flex(...)` 是单独的组件**，不是 Column 的变体。要用 flex 的 wrap、grow、shrink 时再用它；普通竖排，`Column` 更便宜。
+- **间距。** `Column({ space: 12 })` 给子元素之间统一加 12vp 间隔。没有"给某个子元素单独加 padding"的 modifier，要在子元素自己上面调 `.padding(...)`。
+- **宽高默认 wrap_content。** 想撑满父级用 `.width('100%')`。日常单位是百分比和 `vp`（虚拟像素）；`px` 存在但你基本用不着。
+
+<Aside type="caution" title="`'100%'` 的小坑">
+`Column` 里的子元素 `.width('100%')` 没问题。放在 `Scroll` 里有时会塌成 0。修复办法通常是把约束放到 `Scroll` 自身：`Scroll() { ... }.width('100%')`。
+</Aside>
+
+## 异步代码：基本就是 TypeScript
+
+`async` / `await` 行为和 TypeScript 完全一致。Promise 一样。HarmonyOS 标准库里大多数平台 API 都有两个版本——回调风格（旧的 `xxxxAsync(callback)`）和 Promise 风格。**永远选 Promise 版**，可以 `await`，读起来像 Kotlin 协程。
+
+```typescript
+import http from '@ohos.net.http';
+
+async function fetchProfile(id: string): Promise<User> {
+  const client = http.createHttp();
+  try {
+    const res = await client.request(`https://api.example.com/users/${id}`);
+    return JSON.parse(res.result as string) as User;
+  } finally {
+    client.destroy();
+  }
+}
+```
+
+烦人的地方：**`build()` 里不能 `await`**。`build()` 是同步的。模式和 Compose 一样——在生命周期里发起异步（`aboutToAppear()` 是最接近 `LaunchedEffect` 的钩子），让 `@State` 驱动重渲。
+
+```typescript
+@Entry @Component
+struct ProfilePage {
+  @State user: User | null = null;
+
+  aboutToAppear() {
+    fetchProfile('1').then(u => { this.user = u });
+  }
+
+  build() {
+    if (this.user === null) {
+      LoadingProgress().width(40).height(40)
+    } else {
+      Text(this.user.name)
+    }
+  }
+}
+```
+
+## 第一周会被坑的几件事
+
+按我踩坑的顺序：
+
+- **DevEco Studio 对文件命名 *很* 敏感。** 一个页面文件必须挂在 `main_pages.json` 里才会成为路由。漏挂的报错信息毫无帮助。
+- **改 `@State` 字段类型时热更新经常失灵。** 改类型就重启预览，省半小时。
+- **`console.log` 在模拟器有，在真机上不一定有。** 在真机上要看日志，用 `hilog`。完整模式参考 [debugging 文档](/zh/docs/workflow/debugging/)。
+- **权限是声明 + 运行时双轨**，和 Android 一样，但运行时 API 不一样。别去找 `ContextCompat.checkSelfPermission`。要用 `abilityAccessCtrl`，详见 [permissions 文档](/zh/docs/platform/permissions/)。
+- **没有 Activity 栈。** HarmonyOS 是 `UIAbility` + 页内 `Navigation`（推荐）/ `Router`（旧）。心智上：Activity → UIAbility，Fragment → 页面（route）。
+
+## 一个小但完整的 Demo
+
+"列表 + 详情" 在 ArkUI 里的最小完整写法。两个文件，用 `Navigation` 串起来。
+
+```typescript
+// pages/HomePage.ets
+@Entry @Component
+struct HomePage {
+  @State items: string[] = ['Alpha', 'Beta', 'Gamma'];
+  pathStack: NavPathStack = new NavPathStack();
+
+  build() {
+    Navigation(this.pathStack) {
+      List() {
+        ForEach(this.items, (name: string) => {
+          ListItem() {
+            Text(name).fontSize(18).padding(16)
+          }
+          .onClick(() => this.pathStack.pushPathByName('Detail', name))
+        })
+      }
+    }
+    .title('Home')
+  }
+}
+```
+
+```typescript
+// pages/DetailPage.ets
+@Builder
+function DetailBuilder(name: string) {
+  NavDestination() {
+    Column({ space: 8 }) {
+      Text(`You picked: ${name}`).fontSize(22)
+    }
+    .padding(24)
+  }
+  .title(name)
+}
+```
+
+`@Builder` + `NavDestination` 是新版鸿蒙声明导航目的地的方式，第一次看会觉得奇怪，写多就习惯了。`Router.pushUrl` 还能用，但新项目推荐 `Navigation`。
+
+## 接下来读什么
+
+- [App Model 文档](/zh/docs/foundation/app-model/) 详细讲 UIAbility 与 Stage 模型——做多页面之前先读它。
+- [State Management 文档](/zh/docs/ui/state-management/) 是上面那七个装饰器的生存指南。
+- 想做点视觉上有意思的东西，跳到 [Animation & Gesture](/zh/docs/ui/animation-and-gesture/) 和 [Visual Effects Recipes](/zh/docs/ui/visual-effects-recipes/)。
+
+一天写不出 idiomatic 的 ArkTS，但一天能写出 *能跑* 的 ArkTS。这就是这篇文章的目标——先把第一个能编译通过的页面写出来，剩下的边发版本边学。祝顺利。
+
+## 相关参考
+
+- [`docs/foundation/arkts-language`](/zh/docs/foundation/arkts-language/) — 语言语义与 ArkTS 特有约束
+- [`docs/ui/state-management`](/zh/docs/ui/state-management/) — `@State`、`@Prop`、`@Link`、`@Observed`
+- [`docs/foundation/app-model`](/zh/docs/foundation/app-model/) — Stage 模型、UIAbility、Navigation

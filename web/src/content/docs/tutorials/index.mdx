@@ -1,0 +1,40 @@
+---
+title: Tutorials
+description: Long-form tutorials for HarmonyOS / OpenHarmony app developers — ArkTS, ArkUI, animation, Canvas, widgets, and migrating from Android.
+sidebar:
+  order: 0
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+These are the long-form tutorials. Each one is a real walkthrough, not a docs dump — every code block is meant to compile, every "gotcha" was hit by someone.
+
+If you're brand new, the **Getting Started with ArkTS** post is the right entry point.
+
+<CardGrid>
+  <LinkCard
+    title="Getting Started with ArkTS — for Android developers"
+    href="/tutorials/arkts-for-android-developers/"
+    description="A pragmatic mental-model bridge from Kotlin/Java to ArkTS, decorators, and ArkUI."
+  />
+  <LinkCard
+    title="HarmonyOS animation basics: ArkUI transition & Animator"
+    href="/tutorials/harmonyos-animation-basics/"
+    description="animateTo vs transition vs Animator — when each one is the right tool."
+  />
+  <LinkCard
+    title="Canvas drawing in HarmonyOS — a complete tutorial"
+    href="/tutorials/harmonyos-canvas-drawing/"
+    description="Paths, gradients, image clipping, and an animated wave with RAF discipline."
+  />
+  <LinkCard
+    title="Build your first HarmonyOS Widget (Form Card)"
+    href="/tutorials/harmonyos-widget-getting-started/"
+    description="A working 2×2 service card from scratch, with provider/renderer split and postCardAction."
+  />
+  <LinkCard
+    title="HarmonyOS NEXT vs Android — what's actually different"
+    href="/tutorials/harmonyos-next-vs-android/"
+    description="No AOSP, no JVM. What changes for architecture, build, and shipping."
+  />
+</CardGrid>

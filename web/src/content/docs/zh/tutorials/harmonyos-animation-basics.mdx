@@ -1,0 +1,239 @@
+---
+title: "HarmonyOS 动画基础：ArkUI Transition 与 Animator API 详解"
+description: "ArkUI 提供三套不同层级的动画工具——animateTo、transition、Animator。这篇梳理什么场景该用哪个，附可运行的示例代码。"
+pubDate: 2025-04-08
+sidebar:
+  order: 2
+tags: [harmonyos, arkui, animation, transition, animator]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+ArkUI 给你三套不同的动画工具，它们的能力有相当多重叠，到底用哪个真的容易让人犯迷糊。在做了几个有点动效的 HarmonyOS 页面之后，这是我希望第一天就有人告诉我的心智地图。
+
+三套工具是：
+
+1. **`animateTo`（属性动画）** —— 改属性、把改动包在 `animateTo` 里、ArkUI 自动 tween。80% 场景。
+2. **`transition`（出现/消失/共享元素）** —— 声明式，挂在组件上，组件被插入或移除时触发。
+3. **`Animator` 类** —— 底层值生成器。它不直接动画属性，只给你 `onFrame(value => ...)`，剩下你自己接。其他工具搞不定时再用。
+
+按你实际会用到的顺序逐一过一遍。
+
+## animateTo：主力工具
+
+如果你熟悉 CSS `animate*` 或 Compose 的 `animateXxxAsState`，就是这个。把状态修改包在 `animateTo({ duration, curve, ... }, () => { ... })` 里，ArkUI 在新旧值之间插值。
+
+```typescript
+@Entry @Component
+struct Pulse {
+  @State scale: number = 1;
+
+  build() {
+    Column() {
+      Text('Tap me')
+        .fontSize(24)
+        .scale({ x: this.scale, y: this.scale })
+        .onClick(() => {
+          animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+            this.scale = this.scale === 1 ? 1.2 : 1;
+          });
+        });
+    }
+    .height('100%').width('100%').justifyContent(FlexAlign.Center)
+  }
+}
+```
+
+三个值得记的点：
+
+- **只有可动画属性会插值。** 宽、高、透明度、位置、旋转、缩放、平移、内外边距、颜色（部分情况）—— 行；布局方向、`flex` 语义 —— 不行。
+- **修改必须在闭包 *里面* 发生。** 在外面改完再调一个空的 `animateTo` 没用。框架靠进入/退出闭包时的快照做 diff。
+- **缓动函数从 `Curve` 枚举选**（`Linear`、`Ease`、`EaseIn/Out/InOut`、`Sharp`、`Friction` 等）。物理感运动用 `curves.springMotion()`（注意小写 `curves`，是 `@ohos.curves` 的单独 import）。
+
+```typescript
+import curves from '@ohos.curves';
+
+animateTo({ curve: curves.springMotion(0.4, 0.7) }, () => {
+  this.offsetY = -120;
+});
+```
+
+<Aside type="tip" title="拿不准就用 animateTo">
+80% 的 UI 动效——按钮点击反馈、面板展开、底部抽屉、下拉刷新 indicator——`animateTo` 都是对的工具。别想多了。
+</Aside>
+
+## transition：进出场动画
+
+`transition` 是给组件出现/消失用的。类比 Compose 的 `AnimatedVisibility`，或者 React 的 `<Transition>`。挂一次就行，组件被条件渲染插入或移除时框架自动播。
+
+```typescript
+@Entry @Component
+struct Sheet {
+  @State open: boolean = false;
+
+  build() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        Button(this.open ? 'Close' : 'Open')
+          .onClick(() => { this.open = !this.open });
+      }
+      .height('100%').width('100%').justifyContent(FlexAlign.Center);
+
+      if (this.open) {
+        Column() {
+          Text('从底部滑上来').padding(24);
+        }
+        .width('100%').height(220)
+        .backgroundColor('#3478f6').borderRadius(20)
+        .transition(TransitionEffect.move(TransitionEdge.BOTTOM)
+          .animation({ duration: 240, curve: Curve.EaseOut }));
+      }
+    }
+  }
+}
+```
+
+`TransitionEffect` 可组合：用 `.combine(...)` 串起淡入 + 滑动 + 缩放。完整词汇看 [animation-and-gesture 文档](/zh/docs/ui/animation-and-gesture/)，常用入门集合：
+
+- `TransitionEffect.OPACITY` —— 淡入淡出
+- `TransitionEffect.move(edge)` —— 从某条边滑入
+- `TransitionEffect.scale({ x, y })` —— 缩放进入
+- `TransitionEffect.translate({ x, y })` —— 偏移进入
+
+`geometryTransition` 是它的"共享元素"兄弟：在两个状态里给两个组件打同样的 key，ArkUI 在它们之间做形变动画。强但容易滥用，留给 hero 图、详情页展开这类场景，别每个小交互都用。
+
+## Animator：手动挡
+
+`Animator` 是上面两个都不够用时的兜底。经典场景：动画一个**不是 UI 属性**的值——Canvas 绘制的某个参数、物理仿真、音频增益。你要的是一个按帧跑的 tween，每帧给你当前值。
+
+```typescript
+import { Animator, AnimatorResult } from '@ohos.animator';
+
+@Entry @Component
+struct AnimatorDemo {
+  @State waveOffset: number = 0;
+  private animator: AnimatorResult | null = null;
+
+  aboutToAppear() {
+    this.animator = Animator.create({
+      duration: 1500, easing: 'linear', delay: 0,
+      fill: 'forwards', direction: 'normal',
+      iterations: -1,   // 无限循环
+      begin: 0, end: 100,
+    });
+    this.animator.onFrame = (value: number) => {
+      this.waveOffset = value;
+    };
+    this.animator.play();
+  }
+
+  aboutToDisappear() {
+    this.animator?.cancel();
+  }
+
+  build() {
+    Text(`Offset: ${this.waveOffset.toFixed(1)}`)
+  }
+}
+```
+
+我第一次用时被它咬了三口：
+
+- **永远在 `aboutToDisappear` 里 cancel。** 否则你泄漏一个 frame callback，离开页面后还在跑。CPU 和电量都会注意到。
+- **`iterations: -1`** 是 "无限"，不是 `Infinity`。
+- **`onFrame` 跑在 UI 线程。** 里面做重活会卡滚动。要算就算一次，让 `@State` 把结果传出去。
+
+<Aside type="caution" title="Animator vs requestAnimationFrame">
+Canvas 那种"每帧画一次"的循环，用 `requestAnimationFrame` 也行。两者类似；`Animator` 适合明确的 A→B tween + 缓动；自由形式的逐帧逻辑，`rAF` 更直观。
+</Aside>
+
+## 综合示例：三点 loading 加载
+
+把三个工具搓在一起。组件里三个圆点交错脉动，整体淡入淡出。
+
+```typescript
+@Component
+struct Dot {
+  @Prop delay: number;
+  @State scale: number = 1;
+
+  aboutToAppear() {
+    setTimeout(() => this.loop(), this.delay);
+  }
+
+  loop() {
+    animateTo({
+      duration: 600, curve: Curve.EaseInOut,
+      onFinish: () => this.loop(),
+    }, () => {
+      this.scale = this.scale === 1 ? 1.6 : 1;
+    });
+  }
+
+  build() {
+    Circle({ width: 10, height: 10 })
+      .fill('#3478f6')
+      .scale({ x: this.scale, y: this.scale });
+  }
+}
+
+@Entry @Component
+struct LoadingRipple {
+  @State visible: boolean = true;
+
+  build() {
+    Column({ space: 24 }) {
+      Button(this.visible ? 'Hide' : 'Show')
+        .onClick(() => { this.visible = !this.visible });
+
+      if (this.visible) {
+        Row({ space: 16 }) {
+          Dot({ delay: 0 })
+          Dot({ delay: 150 })
+          Dot({ delay: 300 })
+        }
+        .transition(TransitionEffect.OPACITY
+          .animation({ duration: 200, curve: Curve.EaseOut }));
+      }
+    }
+    .padding(32)
+  }
+}
+```
+
+注意分层：
+
+- `animateTo` 驱动每个圆点的脉动 —— 属性动画。
+- `transition` 控制整行的淡入淡出 —— 出场动画。
+- 这里不需要 `Animator`。如果想让圆点沿正弦曲线起伏而不是二值缩放，那就轮到 `Animator` 了。
+
+## 常见坑
+
+- **首次渲染不会触发动画。** `animateTo` 只对 *变化* 起作用。要进场动画就用 `transition`；或者 state 初始化一个值，`aboutToAppear` 里改成另一个。
+- **改布局属性会触发 reflow。** 动 `width` 能用但贵，便宜的运动优先用 `scale` / `translate`。
+- **不要嵌套 `animateTo`。** 在 `animateTo` 闭包里再调一个 `animateTo` 行为很奇怪。要串起来用 `onFinish` 链。
+- **动画被打断时 `onFinish` 不会触发。** 新动画把目标改了，旧的 `onFinish` 直接丢。别在它里面做清理；清理放 `aboutToDisappear`。
+- **Spring 曲线会冲过头。** `springMotion` 很好看但会越过目标值。如果动画的是透明度或者 `[0,1]` 之间被 clamp 的值，用 `EaseOut`。
+
+## 用哪个？速查
+
+| 想做的事 | 用 |
+|---|---|
+| 按钮按下时缩放 | `animateTo` |
+| 面板从底部滑入 | `transition(TransitionEffect.move(...))` |
+| 列表项点击平滑展开 | `animateTo` 改 `height` |
+| 用值驱动 Canvas 逐帧绘制 | `Animator` 或 `rAF` |
+| 详情页 hero 图共享转场 | `geometryTransition` |
+| 物理感"弹性"出现 | `animateTo` + `curves.springMotion()` |
+
+## 收尾
+
+ArkUI 的动画系统设计是不错的，但表面积大。**先用 `animateTo`，明确不行再升级到 `transition` 和 `Animator`。** 这个顺序也是 CPU 和复杂度从低到高的顺序。
+
+如果你给一个普通按钮去用 `Animator`，停下来，回来重读这篇。九成是用错了。
+
+## 相关参考
+
+- [`docs/ui/animation-and-gesture`](/zh/docs/ui/animation-and-gesture/) —— ArkUI 动画完整词汇
+- [`docs/ui/visual-effects-recipes`](/zh/docs/ui/visual-effects-recipes/) —— 弹性运动、共享转场、辉光、毛玻璃
+- [`docs/ui/ui-implementation-rules`](/zh/docs/ui/ui-implementation-rules/) —— MVP-first 的实现规则
