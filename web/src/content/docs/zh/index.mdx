@@ -1,0 +1,81 @@
+---
+title: ohosdev — 面向开发者的 HarmonyOS 社区资源站
+description: 面向 HarmonyOS / OpenHarmony 开发者的教程、能力域参考和开源 AgentSkill。涵盖 ArkTS、ArkUI、动画、Canvas、卡片等。
+template: splash
+hero:
+  tagline: 一个由社区驱动的 HarmonyOS / OpenHarmony 开发者资源站，提供教程、能力域参考和开源 AgentSkill。
+  image:
+    file: ../../../assets/logo.svg
+  actions:
+    - text: 浏览教程
+      link: /zh/tutorials/
+      icon: right-arrow
+      variant: primary
+    - text: 参考文档
+      link: /zh/docs/
+      icon: open-book
+    - text: GitHub
+      link: https://github.com/douya-labs/harmony-app-dev
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## 这是什么？
+
+**ohosdev** 是 [`harmony-app-dev`](https://github.com/douya-labs/harmony-app-dev) AgentSkill 的公开 Web 镜像 —— 一个手工整理、按能力域分类的 HarmonyOS / OpenHarmony 开发知识库。
+
+<CardGrid>
+  <Card title="阅读教程" icon="document">
+    覆盖 ArkTS、ArkUI 动画、Canvas、Widget、HarmonyOS 与 Android 迁移等长文。写给真正在做产品的开发者。
+  </Card>
+  <Card title="速查参考" icon="open-book">
+    38 篇按能力域分类的参考文档（UI / 动画 / 卡片 / 网络 / 存储 / 并发 ……），与上游 AgentSkill 保持一致并持续更新。
+  </Card>
+  <Card title="接入你的 AI" icon="rocket">
+    将 `harmony-app-dev` AgentSkill 装进 Claude / Cursor / OpenClaw，可以避免 AI 编造不存在的鸿蒙 API。Web 和 Skill 共享同一份知识源。
+  </Card>
+  <Card title="开源 / 社区共建" icon="github">
+    所有内容都在同一个 GitHub 仓库，欢迎提 PR：教程、翻译、新增能力参考都可以。
+  </Card>
+</CardGrid>
+
+## 精选教程
+
+<LinkCard
+  title="ArkTS 入门：写给 Android 开发者"
+  href="/zh/tutorials/arkts-for-android-developers/"
+  description="如果你熟悉 Kotlin 或现代 Java，一个下午就能上手 ArkTS。这里是最短的心智模型迁移路径。"
+/>
+<LinkCard
+  title="HarmonyOS 动画基础：ArkUI Transition 与 Animator"
+  href="/zh/tutorials/harmonyos-animation-basics/"
+  description="属性动画、transition vs animateTo、Animator 类到底用在哪儿。"
+/>
+<LinkCard
+  title="HarmonyOS Canvas 绘图完整教程"
+  href="/zh/tutorials/harmonyos-canvas-drawing/"
+  description="从第一笔线条到动态水波。RAF 节奏控制、图片裁剪和那些没人会提醒你的坑。"
+/>
+<LinkCard
+  title="第一个 HarmonyOS 服务卡片（Widget）实战"
+  href="/zh/tutorials/harmonyos-widget-getting-started/"
+  description="Provider/Renderer 拆分，postCardAction，附一个可直接抄的 2×2 步数卡片。"
+/>
+<LinkCard
+  title="HarmonyOS NEXT vs Android：到底有哪些差异"
+  href="/zh/tutorials/harmonyos-next-vs-android/"
+  description="没有 AOSP、没有 JVM、没有 Java。这对架构、构建和上线意味着什么。"
+/>
+
+## 按能力域浏览
+
+<CardGrid>
+  <LinkCard title="UI 与 ArkUI" href="/zh/docs/ui/" />
+  <LinkCard title="服务卡片 Widget" href="/zh/docs/widget/" />
+  <LinkCard title="平台能力" href="/zh/docs/platform/" />
+  <LinkCard title="数据与 I/O" href="/zh/docs/data-io/" />
+  <LinkCard title="基础（应用模型 / ArkTS / 资源）" href="/zh/docs/foundation/" />
+  <LinkCard title="开发流程与工具" href="/zh/docs/workflow/" />
+</CardGrid>
