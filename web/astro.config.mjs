@@ -75,15 +75,39 @@ export default defineConfig({
       },
       sidebar: [
         {
-          label: 'Tutorials',
-          translations: { 'zh-CN': '教程' },
-          autogenerate: { directory: 'tutorials' },
+          label: '📖 Stories',
+          translations: { 'zh-CN': '📖 开发日记' },
+          autogenerate: { directory: 'stories' },
+        },
+        {
+          label: '💡 Tips',
+          translations: { 'zh-CN': '💡 小技巧' },
+          autogenerate: { directory: 'tips' },
+        },
+        {
+          label: '🎨 Showcase',
+          translations: { 'zh-CN': '🎨 API 玩法' },
+          autogenerate: { directory: 'showcase' },
         },
         {
           label: 'Reference Docs',
           translations: { 'zh-CN': '参考文档' },
           autogenerate: { directory: 'docs' },
           collapsed: true,
+        },
+        {
+          label: 'Tutorials',
+          translations: { 'zh-CN': '教程' },
+          autogenerate: { directory: 'tutorials' },
+          collapsed: true,
+        },
+        {
+          label: 'About',
+          translations: { 'zh-CN': '关于' },
+          items: [
+            { label: 'About douya', translations: { 'zh-CN': '关于豆芽' }, link: '/about/' },
+            { label: 'The AgentSkill', translations: { 'zh-CN': 'AgentSkill' }, link: 'https://github.com/douya-labs/harmony-app-dev' },
+          ],
         },
       ],
       lastUpdated: true,
