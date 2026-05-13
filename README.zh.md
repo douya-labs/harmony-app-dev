@@ -82,21 +82,13 @@ references/
 - `references/` 存放按需加载的领域参考资料
 - 这个 skill 的目标是轻量、实用，不是做成完整的 HarmonyOS API 百科全书
 
-## 公开 Web 镜像 —— `web/`
+## 配套站点 —— ohosdev.com
 
-基于同一份 `references/` 内容做的一个面向 SEO 的公开开发者资源站，放在 [`web/`](./web)。线上地址 **https://ohosdev.com**。
-
-```bash
-cd web
-npm install
-npm run sync:refs   # 从 ../references 重新同步 /docs
-npm run dev         # http://localhost:4321
-npm run build       # 产物在 ./dist（纯静态，Cloudflare Pages 友好）
-```
-
-详见 [`web/README.md`](./web/README.md)：技术栈、AdSense 配置、Cloudflare Pages 接入步骤。
+基于同一份 `references/` 内容做的公开开发者站，单独放在 [`douya-labs/ohosdev`](https://github.com/douya-labs/ohosdev) 仓库里，线上地址 **https://ohosdev.com**。
 
 站点分两层内容：
 
 - **`/docs/`** —— `references/` 的 38 篇参考文档，自动同步后以文档站形式呈现（英文 + 中文翻译待补）。
-- **`/tutorials/`** —— 在 references 之上写的长文教程，主要做 SEO 和可读性。
+- **`/tutorials/`、`/stories/`、`/tips/`、`/showcase/`** —— 在 references 之上写的长文/短文/案例，主要做 SEO 和可读性。
+
+你改 `references/` 之后，ohosdev 仓里 `npm run sync:refs` 会拉取本仓库做下一次构建。
