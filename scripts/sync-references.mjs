@@ -29,9 +29,10 @@ const META = {
   'capability-map':            { cat: 'foundation', title: 'Capability Map', order: 1 },
   'coverage':                  { cat: 'foundation', title: 'Coverage Matrix', order: 2 },
   'app-model':                 { cat: 'foundation', title: 'App Model (Stage Model)', order: 10 },
-  'packaging':                 { cat: 'foundation', title: 'Packaging: HAP / HAR / HSP', order: 11 },
-  'arkts-language':            { cat: 'foundation', title: 'ArkTS Language', order: 12 },
-  'resource-management':       { cat: 'foundation', title: 'Resource Management', order: 13 },
+  'project-skeleton':          { cat: 'foundation', title: 'Project Skeleton (Stage Model)', order: 11 },
+  'packaging':                 { cat: 'foundation', title: 'Packaging: HAP / HAR / HSP', order: 12 },
+  'arkts-language':            { cat: 'foundation', title: 'ArkTS Language', order: 13 },
+  'resource-management':       { cat: 'foundation', title: 'Resource Management', order: 14 },
   // ui
   'ui-design':                 { cat: 'ui', title: 'UI Design Principles', order: 1 },
   'ui-implementation-rules':   { cat: 'ui', title: 'UI Implementation Rules', order: 2 },
@@ -63,12 +64,13 @@ const META = {
   'location':                  { cat: 'data-io', title: 'Location', order: 5 },
   // workflow
   'debugging':                 { cat: 'workflow', title: 'Debugging', order: 1 },
-  'testing':                   { cat: 'workflow', title: 'Testing', order: 2 },
-  'publishing':                { cat: 'workflow', title: 'Publishing', order: 3 },
-  'api-watch':                 { cat: 'workflow', title: 'API Watch', order: 4 },
-  'official-search-playbook':  { cat: 'workflow', title: 'Official Search Playbook', order: 5 },
-  'official-api-examples':     { cat: 'workflow', title: 'Official API Examples', order: 6 },
-  'example-cookbook':          { cat: 'workflow', title: 'Example Cookbook', order: 7 },
+  'development-workflow':      { cat: 'workflow', title: 'Cross-Environment Workflow', order: 2 },
+  'testing':                   { cat: 'workflow', title: 'Testing', order: 3 },
+  'publishing':                { cat: 'workflow', title: 'Publishing', order: 4 },
+  'api-watch':                 { cat: 'workflow', title: 'API Watch', order: 5 },
+  'official-search-playbook':  { cat: 'workflow', title: 'Official Search Playbook', order: 6 },
+  'official-api-examples':     { cat: 'workflow', title: 'Official API Examples', order: 7 },
+  'example-cookbook':          { cat: 'workflow', title: 'Example Cookbook', order: 8 },
 };
 
 const CATEGORY_LABELS = {

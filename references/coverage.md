@@ -51,7 +51,7 @@ Status legend:
 
 | # | Official domain (Guides) | Local file | Status | Priority |
 |---|---|---|---|---|
-| 1 | 应用模型 (Application Model / Stage 模型) | `app-model.md` | ✅ covered | maintain |
+| 1 | 应用模型 (Application Model / Stage 模型) | `app-model.md`, `project-skeleton.md` | ✅ covered | maintain |
 | 2 | 应用程序包 (HAP / HAR / HSP) | `packaging.md` | ✅ covered | maintain |
 | 3 | UI 开发 (ArkUI 声明式 UI) | `ui-implementation-rules.md`, `visual-effects-recipes.md`, `example-cookbook.md`, `component-library-policy.md` | ✅ covered | maintain |
 | 4 | UI 设计 (Design / HarmonyOS Design) | `ui-design.md` | ✅ covered | maintain |
@@ -75,7 +75,7 @@ Status legend:
 | 22 | ArkGraphics 3D | `graphics-3d.md` | ✅ covered | maintain |
 | 23 | 多媒体感知 (Multimodal Awareness Kit) | `official-api-examples.md` | 🟡 partial | P2 |
 | 24 | 并发 (TaskPool / Worker) | `concurrency.md` | ✅ covered | maintain |
-| 25 | 调试与性能 (DevEco Studio / HiLog / Profiler) | `debugging.md` | ✅ covered | maintain |
+| 25 | 调试与性能 (DevEco Studio / HiLog / Profiler) | `debugging.md`, `development-workflow.md` | ✅ covered | maintain |
 | 26 | 测试 (HarmonyOS Test Framework) | `testing.md` | ✅ covered | maintain |
 | 27 | 上架与发布 (AppGallery Connect) | `publishing.md` | ✅ covered | maintain |
 | 28 | 国际化 (i18n / l10n) | `i18n.md` | ✅ covered | maintain |

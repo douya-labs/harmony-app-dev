@@ -59,6 +59,10 @@ If exact property names, method signatures, decorators, or component capabilitie
 - `references/coverage.md` — official-vs-local coverage matrix; the source of truth for what this skill covers
 - `references/capability-map.md` — classify the requirement and identify the official doc category
 
+### Read when bootstrapping a new HarmonyOS project
+- `references/project-skeleton.md` — the minimum 17–18-file Stage Model project layout DevEco will accept on first import; how to handle `app_icon` placeholder; `.gitignore` essentials
+- `references/development-workflow.md` — Linux/WSL writing + Windows/macOS DevEco validating; git as the boundary; agent↔human handoff loop
+
 ### Read as needed
 - `references/app-model.md` — Stage model, UIAbility lifecycle, Navigation vs Router, Want, Context, module split
 - `references/ui-implementation-rules.md` — ArkUI UI pages, visual effects, animations, gestures, MVP-first implementation behavior
@@ -93,6 +97,8 @@ If exact property names, method signatures, decorators, or component capabilitie
 - `references/graphics-3d.md` — when deciding between ArkGraphics 3D and simpler 2.5D ArkUI transforms
 - `references/widget.md` — Widget / FormExtensionAbility work
 - `references/app-model.md` — app structure, lifecycle, routing, page organization
+- `references/project-skeleton.md` — minimum on-disk layout that DevEco will accept; complement to `app-model.md`
+- `references/development-workflow.md` — cross-environment workflow when DevEco is not local (Linux/WSL agent + Windows/macOS reviewer)
 - `references/official-search-playbook.md` — exact API lookup workflow and search keywords
 - `references/example-cookbook.md` — practical ArkUI implementation scaffolds for common tasks when search is weak or unavailable
 - `references/official-api-examples.md` — direct official URLs and confirmed notes for high-frequency or API-sensitive cases

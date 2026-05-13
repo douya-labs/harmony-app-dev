@@ -7,6 +7,9 @@ Upgraded to cover the Stage model in enough depth to design a real app's structu
 
 This file maps to coverage matrix row **A1. Application model (Stage model)**.
 
+> See also `project-skeleton.md` for the on-disk file layout (`AppScope/`, `entry/`, `module.json5`, `hvigorfile.ts` ...) that the runtime concepts in this file plug into.
+> See also `development-workflow.md` for cross-environment workflows when DevEco Studio is not local (Linux / WSL writing + Windows / macOS validating).
+
 ## Official documentation entry points
 
 - Application Model overview: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/application-model-composition-V5
